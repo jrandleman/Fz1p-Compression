@@ -3,8 +3,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
-#define CH_IS_GNUM(ch_n_inst) (((ch_n_inst) >= '0' && (ch_n_inst) <= '9') ? 1 : 0)
-#define CH_IS_GCAP(ch_c_inst) (((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z') ? 1 : 0)
+#define CH_IS_GNUM(ch_n_inst) ((ch_n_inst) >= '0' && (ch_n_inst) <= '9')
+#define CH_IS_GCAP(ch_c_inst) ((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z')
 #define SS_CH_ID(ch_c_idx) ((CH_IS_GCAP(ch_c_idx)) ? ((ch_c_idx) - 65) : (ch_c_idx - 22))/* 'A' => 0, '1' => 26 */
 #define SS_N0_ID(ch_n_idx,flag_1ch_0int) ((flag_1ch_0int == 1) ? ((ch_n_idx) + 65) : ((ch_n_idx) + 22)) /* 0 => 'A', 26 => '1' */
 
@@ -22,7 +22,6 @@ void err_info();
 void delta_txt_crypt(char *, int *);
 void enc_txt_keys(int *, int);
 
-int ch_total(char *);
 void rm_nxt_ch(char *, int);
 void lowify_s(char *);
 void s_decompress(char [][50], char *);
@@ -199,12 +198,6 @@ void enc_txt_keys(int *key_array, int key_quantity) {
 /******************************************************************************
 * CHAR HANDLER FUNCITONS
 ******************************************************************************/
-int ch_total(char *s) {
-	char *p = s;
-	int count = 0;
-	while(*p++ != '\0') count++;
-	return count;
-}
 void rm_nxt_ch(char *q, int ss_ref_idx) {
 	sprintf(q, "%c%s", ss_refs[ss_ref_idx], q + 1);
 	memmove(q + 1, q + 2, strlen(q + 1));
@@ -259,7 +252,7 @@ int s_compress(char ss[][50], char *s) { /* returns # of substrings */
 }
 int process_split_s(char ss[][50], char *s, char *s_compress_storage, char *arg2) {
 	int ss_total = s_compress(ss, s), keys[101];
-	int compressed_bytes = ch_total(s); /* compressed string length */
+	int compressed_bytes = strlen(s); /* compressed string length */
 	write_bin_ss_keys(ss, ss_total, arg2); /* store ss keys in bin "password" file */
 	enc_txt_keys(keys, 101); /* generate encryption keys for text */
 	delta_txt_crypt(s, keys); /* encrypt text */
