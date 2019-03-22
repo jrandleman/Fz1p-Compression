@@ -105,7 +105,11 @@ void show_txt_compressed(char *arg1) {
 	}
 	fclose(fp);
 
-	fp = fopen(arg1, "w");
+	if((fp = fopen(arg1, "w")) == NULL) {
+		printf("(!!!) ERR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
+		fclose(fp);
+		return;
+	}
 	fwrite(s_max_buffer, sizeof(char), strlen(s_max_buffer), fp);
 	fclose(fp);
 	return;
