@@ -73,7 +73,7 @@ void show(char *arg2, char *arg1) {
 }
 void err_info() {
 	printf("\n-:-:-:-:-:-:-:-:- INVALID EXECUTION! -:-:-:-:-:-:-:-:-\n");
-	preintf(">> gcc -o hidemy hidemy.c\n>> ./hidemy textfile.txt yourpassword hide/show\n");
+	printf(">> gcc -o hidemy hidemy.c\n>> ./hidemy textfile.txt yourpassword hide/show\n");
 	printf("\n=> OPTIMIZED FILE.TXT FORMAT: AVOID NUMBERS & NEWLINES!\n\n");
 }
 /******************************************************************************
