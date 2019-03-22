@@ -5,7 +5,7 @@
 #include <ctype.h>
 #define CH_IS_GNUM(ch_n_inst) ((ch_n_inst) >= '0' && (ch_n_inst) <= '9')
 #define CH_IS_GCAP(ch_c_inst) ((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z')
-#define SS_CH_ID(ch_c_idx) ((CH_IS_GCAP(ch_c_idx)) ? ((ch_c_idx) - 65) : (ch_c_idx - 22))/* 'A' => 0, '1' => 26 */
+#define SS_CH_ID(ch_c_idx) ((CH_IS_GCAP(ch_c_idx)) ? ((ch_c_idx) - 65) : (ch_c_idx - 22)) /* 'A' => 0, '1' => 26 */
 #define SS_N0_ID(ch_n_idx,flag_1ch_0int) ((flag_1ch_0int == 1) ? ((ch_n_idx) + 65) : ((ch_n_idx) + 22)) /* 0 => 'A', 26 => '1' */
 
 /* 'HIDE' FILE FUNCTIONS */
