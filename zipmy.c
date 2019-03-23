@@ -22,7 +22,7 @@ void err_info();
 void delta_txt_crypt(char *, int *);
 void enc_txt_keys(int *, int);
 
-void rm_nxt_ch(char *, int, char *, int);
+void rm_nxt_ch(char *, int);
 void modify_s(char *, int);
 void s_decompress(char [][126], char *);
 int s_compress(char [][126], char *);
@@ -211,12 +211,8 @@ void enc_txt_keys(int *key_array, int key_quantity) {
 /******************************************************************************
 * CHAR HANDLER FUNCITONS
 ******************************************************************************/
-void rm_nxt_ch(char *q, int ss_ref_idx, char *splice_ss_sub, int ss_flag) { /* rmv flag = 1 instance */
-	if(ss_flag == 0) {
-		sprintf(q, "%c%s", ss_refs[ss_ref_idx], q + 1); /* replace 1st char with symbol */
-	} else {
-		sprintf(q, "%s%s", splice_ss_sub, q + 1);
-	}
+void rm_nxt_ch(char *q, int ss_ref_idx) {
+	sprintf(q, "%c%s", ss_refs[ss_ref_idx], q + 1); /* replace 1st char with symbol */
 	memmove(q + 1, q + 2, strlen(q + 1)); /* remove 2nd char */
 }
 void modify_s(char *s, int sp_flag) {
@@ -265,13 +261,13 @@ int s_compress(char ss[][126], char *s) { /* returns # of substrings */
 		while(*(r + 1) != '\0') { /* second ss instance */
 			if(*r == *p && *(r + 1) == *(p + 1)) {
 				found++;
-				rm_nxt_ch(r, ss_idx, "ignore", 0);
+				rm_nxt_ch(r, ss_idx);
 			}
 			r++;
 		}
 		if(found > 0) { /* if ss found, restart search for compounded ss */
 			store_ss(ss, p, ss_idx);
-			rm_nxt_ch(p, ss_idx, "ignore", 0);
+			rm_nxt_ch(p, ss_idx);
 			ss_idx++;
 			p = s;
 		} else {
