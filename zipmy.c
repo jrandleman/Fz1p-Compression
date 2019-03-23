@@ -22,7 +22,7 @@ void err_info();
 void delta_txt_crypt(char *, int *);
 void enc_txt_keys(int *, int);
 
-void rm_nxt_ch(char *, int);
+void rm_nxt_ch(char *, int, char *, int);
 void modify_s(char *, int);
 void s_decompress(char [][50], char *);
 int s_compress(char [][50], char *);
@@ -211,8 +211,12 @@ void enc_txt_keys(int *key_array, int key_quantity) {
 /******************************************************************************
 * CHAR HANDLER FUNCITONS
 ******************************************************************************/
-void rm_nxt_ch(char *q, int ss_ref_idx) {
-	sprintf(q, "%c%s", ss_refs[ss_ref_idx], q + 1);
+void rm_nxt_ch(char *q, int ss_ref_idx, char *splice_ss_sub, int ss_flag) {
+	if(ss_flag == 0) {
+		sprintf(q, "%c%s", ss_refs[ss_ref_idx], q + 1);
+	} else {
+		sprintf(q, "%s%s", splice_ss_sub, q + 1);
+	}
 	memmove(q + 1, q + 2, strlen(q + 1));
 }
 void modify_s(char *s, int sp_flag) {
@@ -261,13 +265,13 @@ int s_compress(char ss[][50], char *s) { /* returns # of substrings */
 		while(*(r + 1) != '\0') { /* second ss instance */
 			if(*r == *p && *(r + 1) == *(p + 1)) {
 				found++;
-				rm_nxt_ch(r, ss_idx);
+				rm_nxt_ch(r, ss_idx, "ignore", 0);
 			}
 			r++;
 		}
 		if(found > 0) { /* if ss found, restart search for compounded ss */
 			store_ss(ss, p, ss_idx);
-			rm_nxt_ch(p, ss_idx);
+			rm_nxt_ch(p, ss_idx, "ignore", 0);
 			ss_idx++;
 			p = s;
 		} else {
@@ -316,10 +320,14 @@ int clean_ss(char ss[][50], char *s, int ss_total) {
 void splice_ss(char ss[][50], int nested_ss[37], int nest_total, int ss_total) {
 	for(int i = 0; i < nest_total; i++) { /* traverse nested ss array */
 		for(int j = 0; j < ss_total; j++) { /* traverse ss array */
-			if(ss[j][0] == ss_refs[nested_ss[i]]) /* splice nested ss val into non-nested ss */
-				sprintf(ss[j], "%s%c", ss[nested_ss[i]], ss[j][1]);
-			if(ss[j][1] == ss_refs[nested_ss[i]])
-				sprintf((ss[j]), "%c%s", ss[j][0], ss[nested_ss[i]]);
+			int curr_ss_len = strlen(ss[j]);
+			for(int l = 0; l < curr_ss_len; l++) {
+				if(l == 0 && ss[j][0] == ss_refs[nested_ss[i]]) {
+					sprintf(ss[j], "%s%c", ss[nested_ss[i]], ss[j][1]);
+				} else if(ss[j][l] == ss_refs[nested_ss[i]]) {
+					rm_nxt_ch(&ss[j][l - 1], 0, ss[nested_ss[i]], 1);
+				}
+			}
 		}
 	}
 }
@@ -327,12 +335,13 @@ void trim_ss(char ss[][50], char *s, int nested_ss[37], int nest_total, int ss_t
 	int i, j;
 	for(i = 0; i < nest_total; i++) { /* delete nested-ss */
 		char *p = s;
-		for(j = nested_ss[i]; j < (ss_total - 1); j++) { /* shift up non-nested ss */
-			strcpy(ss[j], ss[j + 1]);
-			if((ss[j][0] > ss_refs[nested_ss[i]] && ss[j][0] <= 'Z') || (CH_IS_GNUM(ss[j][0]))) /* ss-ss references -= 1 as per del  */
-				(ss[j][0] != '0') ? (ss[j][0] -= 1) : (ss[j][0] += 42); /* if char '0', += 42 to go to 'Z' */
-			if((ss[j][1] > ss_refs[nested_ss[i]] && ss[j][1] <= 'Z') || (CH_IS_GNUM(ss[j][1])))
-				(ss[j][1] != '0') ? (ss[j][1] -= 1) : (ss[j][1] += 42);
+		for(j = nested_ss[i]; j < (ss_total - 1); j++) {
+			strcpy(ss[j], ss[j + 1]); /* shift up non-nested ss to delete nested-ss */
+			int curr_ss_len = strlen(ss[j]);
+			for(int l = 0; l < curr_ss_len; l++) {
+				if((ss[j][l] > ss_refs[nested_ss[i]] && ss[j][l] <= 'Z') || (CH_IS_GNUM(ss[j][l]))) /* ss-ss references -= 1 as per del  */
+					(ss[j][l] != '0') ? (ss[j][l] -= 1) : (ss[j][l] += 42); /* if char '0', += 42 to go to 'Z' */
+			}
 		}
 		for (int k = i; k < nest_total; k++) {
 			(nested_ss[k] != '0') ? (nested_ss[k] -= 1) : (nested_ss[k] += 42); /* nested-ss idxs -= 1 as per del */
