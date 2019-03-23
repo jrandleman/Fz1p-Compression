@@ -5,12 +5,12 @@
 #include <ctype.h>
 #define CH_IS_GNUM(ch_n_inst) ((ch_n_inst) >= '0' && (ch_n_inst) <= '9')
 #define CH_IS_GCAP(ch_c_inst) ((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z')
-#define SS_CH_ID(ch_c_idx) ((CH_IS_GCAP(ch_c_idx)) ? ((ch_c_idx) - 65) : (ch_c_idx - 22)) /* 'A' => 0, '1' => 26 */
-#define SS_N0_ID(ch_n_idx,flag_1ch_0int) ((flag_1ch_0int == 1) ? ((ch_n_idx) + 65) : ((ch_n_idx) + 22)) /* 0 => 'A', 26 => '1' */
+#define SS_CH_ID(ch_c_idx) ((CH_IS_GCAP(ch_c_idx)) ? ((ch_c_idx) - 65) : (ch_c_idx - 22)) /* 'A' => 0, '0' => 26 */
+#define SS_N0_ID(ch_n_idx,flag_1ch_0int) ((flag_1ch_0int == 1) ? ((ch_n_idx) + 65) : ((ch_n_idx) + 22)) /* 0 => 'A', 26 => '0' */
 
 /* 'HIDE' FILE FUNCTIONS */
 void hide(char *, char *);
-void write_bin_ss_keys(char [][50], int, char *);
+void write_bin_ss_keys(char [][126], int, char *);
 void read_txt_engl(char *, char *);
 void write_txt_compressed(char *);
 /* 'SHOW' FILE FUNCTIONS */
@@ -24,17 +24,17 @@ void enc_txt_keys(int *, int);
 
 void rm_nxt_ch(char *, int, char *, int);
 void modify_s(char *, int);
-void s_decompress(char [][50], char *);
-int s_compress(char [][50], char *);
-int process_split_s(char [][50], char *, char *, char *);
+void s_decompress(char [][126], char *);
+int s_compress(char [][126], char *);
+int process_split_s(char [][126], char *, char *, char *);
 
-void store_ss(char [][50], char *, int);
-int clean_ss(char [][50], char *, int);
-void splice_ss(char [][50], int [37], int, int);
-void trim_ss(char [][50], char *, int [37], int, int);
-void print_ss(char [][50], int);
+void store_ss(char [][126], char *, int);
+int clean_ss(char [][126], char *, int);
+void splice_ss(char [][126], int [37], int, int);
+void trim_ss(char [][126], char *, int [37], int, int);
+void print_ss(char [][126], int);
 
-char ss_array_matrix[3000][37][50], s_compress_storage[300][101], s_max_buffer[3000];
+char ss_array_matrix[300][37][126], s_compress_storage[300][126], s_max_buffer[30000];
 char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\0", nchar = '\n', tchar = '\t';
 int chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_stats = 0;
 
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
 * HIDE / SHOW FUNCITONS
 ******************************************************************************/
 void hide(char *arg2, char *arg1) {
-	read_txt_engl(arg2, arg1); /* process text file in 100 char chunks */
+	read_txt_engl(arg2, arg1); /* process text file in 125 char chunks */
 	write_txt_compressed(arg1); /* write compressed string to text file */
 	/* output results */
 	float bytes_saved = 100*(1.000000 - ((float)compressed_bytes)/((float)original_bytes));
@@ -82,7 +82,7 @@ void err_info() {
 	printf("============================================================");
 	printf("\n=> FILE.TXT FORMAT: AVOID NUMBERS, NEWLINES, & UNDERSCORES!\n");
 	printf("============================================================");
-	printf("\n=> SEE COMPRESSION STATISTICS: $ (...) hide/show stats\n");
+	printf("\n=> STATISTICS (DO W/ BOTH HIDE/SHOW): $ ... hide/show stats\n");
 	printf("============================================================\n\n");
 }
 /******************************************************************************
@@ -90,19 +90,19 @@ void err_info() {
 ******************************************************************************/
 void show_txt_compressed(char *arg1) {
 	FILE *fp;
-	char s_buffer[100];
-	int s_chunk_number = 0, keys[101];
+	char s_buffer[125];
+	int s_chunk_number = 0, keys[126];
 	if((fp = fopen(arg1, "r")) == NULL) {
 		printf("(!!!) ERR READING COMPRESSED TEXT FILE (!!!)\n");
 		fclose(fp);
 		return;
 	}
-	while(fgets(s_buffer, 100, fp) > 0) {
+	while(fgets(s_buffer, 125, fp) > 0) {
 		char *p = s_buffer;
 		while(*(p + 1) != '\0') p++;
 		*p = '\0'; /* remove \n from s_buffer */
 		if(zip_stats == 1) printf("\nENCRYPTED/COMPRESSED: %s\n", s_buffer);
-		enc_txt_keys(keys, 101);
+		enc_txt_keys(keys, 126);
 		delta_txt_crypt(s_buffer, keys); /* decrypt text */
 		s_decompress(ss_array_matrix[s_chunk_number], s_buffer);
 		modify_s(s_buffer, 2); /* '_' => ' ' */
@@ -127,7 +127,7 @@ void show_txt_compressed(char *arg1) {
 	return;
 }
 void read_txt_engl(char *arg2, char *arg1) {
-	char ss[37][50], s_chunk[101];
+	char ss[37][126], s_chunk[126];
 	int ret;
 	FILE *fp;
 	if((fp = fopen(arg1, "r")) == NULL) {
@@ -135,7 +135,7 @@ void read_txt_engl(char *arg2, char *arg1) {
 		fclose(fp);
 		return;
 	}
-	while((ret = fread(s_chunk, sizeof(char), 100, fp)) > 0) {
+	while((ret = fread(s_chunk, sizeof(char), 125, fp)) > 0) {
 		s_chunk[ret] = '\0';
 		original_bytes += ret;
 		compressed_bytes += process_split_s(ss, s_chunk, s_compress_storage[chunk_count], arg2);
@@ -182,7 +182,7 @@ void read_bin_ss_keys(char *arg2) {
 	}
 	fclose(fp);
 }
-void write_bin_ss_keys(char ss[][50], int ss_total, char *arg2) {
+void write_bin_ss_keys(char ss[][126], int ss_total, char *arg2) {
 	FILE *fp;
 	(chunk_count == 0) ? (fp = fopen(arg2, "wb")) : (fp = fopen(arg2, "ab"));
 	if(fp == NULL) {
@@ -211,13 +211,13 @@ void enc_txt_keys(int *key_array, int key_quantity) {
 /******************************************************************************
 * CHAR HANDLER FUNCITONS
 ******************************************************************************/
-void rm_nxt_ch(char *q, int ss_ref_idx, char *splice_ss_sub, int ss_flag) {
+void rm_nxt_ch(char *q, int ss_ref_idx, char *splice_ss_sub, int ss_flag) { /* rmv flag = 1 instance */
 	if(ss_flag == 0) {
-		sprintf(q, "%c%s", ss_refs[ss_ref_idx], q + 1);
+		sprintf(q, "%c%s", ss_refs[ss_ref_idx], q + 1); /* replace 1st char with symbol */
 	} else {
 		sprintf(q, "%s%s", splice_ss_sub, q + 1);
 	}
-	memmove(q + 1, q + 2, strlen(q + 1));
+	memmove(q + 1, q + 2, strlen(q + 1)); /* remove 2nd char */
 }
 void modify_s(char *s, int sp_flag) {
 	char *p = s, space = ' ', under_s = '_';
@@ -242,7 +242,7 @@ void modify_s(char *s, int sp_flag) {
 /******************************************************************************
 * DE/COMPRESSION FUNCITONS
 ******************************************************************************/
-void s_decompress(char ss[][50], char *s) {
+void s_decompress(char ss[][126], char *s) {
 	char *p = s;
 	char t[strlen(s)];
 	while(*p != '\0') {
@@ -255,7 +255,7 @@ void s_decompress(char ss[][50], char *s) {
 		}
 	}
 }
-int s_compress(char ss[][50], char *s) { /* returns # of substrings */
+int s_compress(char ss[][126], char *s) { /* returns # of substrings */
 	modify_s(s, 1); /* lowify & ' ' => '_' */
 	int ss_idx = 0, found;
 	char *p = s, *r;
@@ -280,13 +280,13 @@ int s_compress(char ss[][50], char *s) { /* returns # of substrings */
 	}
 	return clean_ss(ss, s, ss_idx);
 }
-int process_split_s(char ss[][50], char *s, char *s_compress_storage, char *arg2) {
+int process_split_s(char ss[][126], char *s, char *s_compress_storage, char *arg2) {
 	if(zip_stats == 1) printf("\nORIGINALLY => LEN: %lu, STR: %s\n", strlen(s), s);
-	int ss_total = s_compress(ss, s), keys[101];
+	int ss_total = s_compress(ss, s), keys[126];
 	if(zip_stats == 1) printf("COMPRESSED => LEN: %lu, STR: %s\n", strlen(s), s);
 	int compressed_bytes = strlen(s); /* compressed string length */
 	write_bin_ss_keys(ss, ss_total, arg2); /* store ss keys in bin "password" file */
-	enc_txt_keys(keys, 101); /* generate encryption keys for text */
+	enc_txt_keys(keys, 126); /* generate encryption keys for text */
 	delta_txt_crypt(s, keys); /* encrypt text */
 	strcpy(s_compress_storage, s); /* store compressed string */
 	if(zip_stats == 1) printf("ENCRYPTION => LEN: %lu, STR: %s\n", strlen(s), s);
@@ -296,10 +296,10 @@ int process_split_s(char ss[][50], char *s, char *s_compress_storage, char *arg2
 /******************************************************************************
 * (S)UB(S)TRING FUNCITONS
 ******************************************************************************/
-void store_ss(char ss[][50], char *p, int ss_idx) {
+void store_ss(char ss[][126], char *p, int ss_idx) {
 	sprintf(ss[ss_idx], "%c%c", *p, *(p + 1));
 }
-int clean_ss(char ss[][50], char *s, int ss_total) {
+int clean_ss(char ss[][126], char *s, int ss_total) {
 	char *p;
 	int nest_idx = 0, nested_ss[37]; /* nested ss only ref'd by other ss, arr holds their idxs */
 	for(int i = 0; i < ss_total; i++) {
@@ -317,21 +317,23 @@ int clean_ss(char ss[][50], char *s, int ss_total) {
 	trim_ss(ss, s, nested_ss, nest_idx, ss_total); /* adjust ss & s references as per rmvd nested ss */
 	return (ss_total - nest_idx); /* actual ss total = original ss total - nested ss total */
 }
-void splice_ss(char ss[][50], int nested_ss[37], int nest_total, int ss_total) {
+void splice_ss(char ss[][126], int nested_ss[37], int nest_total, int ss_total) {
 	for(int i = 0; i < nest_total; i++) { /* traverse nested ss array */
 		for(int j = 0; j < ss_total; j++) { /* traverse ss array */
 			int curr_ss_len = strlen(ss[j]);
-			for(int l = 0; l < curr_ss_len; l++) {
-				if(l == 0 && ss[j][0] == ss_refs[nested_ss[i]]) {
-					sprintf(ss[j], "%s%c", ss[nested_ss[i]], ss[j][1]);
-				} else if(ss[j][l] == ss_refs[nested_ss[i]]) {
-					rm_nxt_ch(&ss[j][l - 1], 0, ss[nested_ss[i]], 1);
+			for(int l = 0; l < curr_ss_len; l++) { /* traverse ss */
+				if(ss[j][l] == ss_refs[nested_ss[i]]) { /* if ss has nested ss reference */
+					char nested_elem[126]; /* clone to hold nested ref value */
+					strcpy(nested_elem, ss[nested_ss[i]]); /* clone nested ref val */
+					/* splice post-nested ref ss tail to end of nested ref val */
+					strcpy(&nested_elem[strlen(nested_elem)], &ss[j][l + 1]); 
+					strcpy(&ss[j][l], nested_elem); /* splice nested ref val + ss end to ss ref position */
 				}
 			}
 		}
 	}
 }
-void trim_ss(char ss[][50], char *s, int nested_ss[37], int nest_total, int ss_total) {
+void trim_ss(char ss[][126], char *s, int nested_ss[37], int nest_total, int ss_total) {
 	int i, j;
 	for(i = 0; i < nest_total; i++) { /* delete nested-ss */
 		char *p = s;
@@ -355,7 +357,7 @@ void trim_ss(char ss[][50], char *s, int nested_ss[37], int nest_total, int ss_t
 		}
 	}
 }
-void print_ss(char ss[][50], int ss_total) {
+void print_ss(char ss[][126], int ss_total) {
 	printf("COMPR SUBSTRS:\n");
 	for(int i = 0; i < ss_total; i++){
 		(i < 26) ? printf("=> %c: %s\n", SS_N0_ID(i,1), ss[i]) : printf("%c: %s\n", SS_N0_ID(i,0), ss[i]);
