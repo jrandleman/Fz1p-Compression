@@ -23,7 +23,7 @@ void delta_txt_crypt(char *, int *);
 void enc_txt_keys(int *, int);
 
 void rm_nxt_ch(char *, int);
-void lowify_s(char *);
+void modify_s(char *, int);
 void s_decompress(char [][50], char *);
 int s_compress(char [][50], char *);
 int process_split_s(char [][50], char *, char *, char *);
@@ -34,7 +34,7 @@ void splice_ss(char [][50], int [37], int, int);
 void trim_ss(char [][50], char *, int [37], int, int);
 void print_ss(char [][50], int);
 
-char ss_array_matrix[300][37][50], s_compress_storage[300][101], s_max_buffer[3000];
+char ss_array_matrix[3000][37][50], s_compress_storage[300][101], s_max_buffer[3000];
 char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\0", nchar = '\n', tchar = '\t';
 int chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_stats = 0;
 
@@ -45,10 +45,10 @@ int main(int argc, char *argv[]) {
 	}
 	srand((char)argv[2]);
 	char *action = argv[3], *show_info;
-	lowify_s(action);
+	modify_s(action, 0); /* lowify */
 	if(argc == 5) {
 		show_info = argv[4];
-		lowify_s(show_info);
+		modify_s(show_info, 0); /* lowify */
 		if(strcmp(show_info, "stats") == 0) zip_stats = 1;
 	}
 	if(strcmp(action, "hide") == 0) {
@@ -77,13 +77,13 @@ void show(char *arg2, char *arg1) {
 	printf("\n>> %s => DECOMPRESSED AND DECRYPTED!\n\n", arg1);
 }
 void err_info() {
-	printf("\n================== INVALID EXECUTION! ==================\n");
+	printf("\n==================== INVALID EXECUTION! ====================\n");
 	printf("$ gcc -o zipmy zipmy.c\n$ ./zipmy textfile.txt yourpassword hide/show\n");
-	printf("========================================================");
-	printf("\n=> OPTIMIZED FILE.TXT FORMAT: AVOID NUMBERS & NEWLINES!\n");
-	printf("========================================================");
+	printf("============================================================");
+	printf("\n=> FILE.TXT FORMAT: AVOID NUMBERS, NEWLINES, & UNDERSCORES!\n");
+	printf("============================================================");
 	printf("\n=> SEE COMPRESSION STATISTICS: $ (...) hide/show stats\n");
-	printf("========================================================\n\n");
+	printf("============================================================\n\n");
 }
 /******************************************************************************
 * TEXT FILE FUNCITONS
@@ -105,6 +105,7 @@ void show_txt_compressed(char *arg1) {
 		enc_txt_keys(keys, 101);
 		delta_txt_crypt(s_buffer, keys); /* decrypt text */
 		s_decompress(ss_array_matrix[s_chunk_number], s_buffer);
+		modify_s(s_buffer, 2); /* '_' => ' ' */
 		if(zip_stats == 1) printf("DECRYPTED/DECOMPRESS: %s\n", s_buffer);
 		strcpy(s_compress_storage[s_chunk_number], s_buffer);
 		s_chunk_number++;
@@ -201,11 +202,11 @@ void write_bin_ss_keys(char ss[][50], int ss_total, char *arg2) {
 ******************************************************************************/
 void delta_txt_crypt(char *char_array, int *key_array) {
 	int *n = key_array;
-	char *p = char_array;
+	char *p = char_array, sp = ' ';
 	while(*p != '\0') *p++ ^= *n++;
 }
 void enc_txt_keys(int *key_array, int key_quantity) {
-	for(; key_quantity-- > 0; *key_array++ = (rand()%10+1));
+	for(; key_quantity-- > 0; *key_array++ = (rand()%11+5));
 }
 /******************************************************************************
 * CHAR HANDLER FUNCITONS
@@ -214,11 +215,24 @@ void rm_nxt_ch(char *q, int ss_ref_idx) {
 	sprintf(q, "%c%s", ss_refs[ss_ref_idx], q + 1);
 	memmove(q + 1, q + 2, strlen(q + 1));
 }
-void lowify_s(char *s) {
-	char *p = s;
-	while(*p != '\0') {
-		*p = tolower(*p);
-		p++;
+void modify_s(char *s, int sp_flag) {
+	char *p = s, space = ' ', under_s = '_';
+	if(sp_flag == 0) { /* lowercase */
+		while(*p != '\0') {
+			*p = tolower(*p);
+			p++;
+		}
+	} else if(sp_flag == 1) { /* lowercase + underscores for spaces (encrypt) */
+		while(*p != '\0') {
+			*p = tolower(*p);
+			if(*p == space) *p = under_s;
+			p++;
+		}
+	} else { /* spaces for underscores (decrypt) */
+		while(*p != '\0') {
+			if(*p == under_s) *p = space;
+			p++;
+		}
 	}
 }
 /******************************************************************************
@@ -226,11 +240,11 @@ void lowify_s(char *s) {
 ******************************************************************************/
 void s_decompress(char ss[][50], char *s) {
 	char *p = s;
+	char t[strlen(s)];
 	while(*p != '\0') {
 		if(CH_IS_GCAP(*p) == 1 || CH_IS_GNUM(*p) == 1) {
-			char t[strlen(s)];
 			sprintf(t, "%s%s", ss[SS_CH_ID(*p)], p+1);
-			strcpy(p, t);
+			sprintf(p, "%s", t);
 			p = s;
 		} else {
 			p++;
@@ -238,7 +252,7 @@ void s_decompress(char ss[][50], char *s) {
 	}
 }
 int s_compress(char ss[][50], char *s) { /* returns # of substrings */
-	lowify_s(s);
+	modify_s(s, 1); /* lowify & ' ' => '_' */
 	int ss_idx = 0, found;
 	char *p = s, *r;
 	while(*(p + 1) != '\0') { /* first ss instance */
@@ -302,11 +316,10 @@ int clean_ss(char ss[][50], char *s, int ss_total) {
 void splice_ss(char ss[][50], int nested_ss[37], int nest_total, int ss_total) {
 	for(int i = 0; i < nest_total; i++) { /* traverse nested ss array */
 		for(int j = 0; j < ss_total; j++) { /* traverse ss array */
-			if(ss[j][0] == ss_refs[nested_ss[i]]) { /* splice nested ss val into non-nested ss */
+			if(ss[j][0] == ss_refs[nested_ss[i]]) /* splice nested ss val into non-nested ss */
 				sprintf(ss[j], "%s%c", ss[nested_ss[i]], ss[j][1]);
-			} else if(ss[j][1] == ss_refs[nested_ss[i]]) {
-				sprintf((ss[j] + 1), "%c%s", ss[j][0], ss[nested_ss[i]]);
-			}
+			if(ss[j][1] == ss_refs[nested_ss[i]])
+				sprintf((ss[j]), "%c%s", ss[j][0], ss[nested_ss[i]]);
 		}
 	}
 }
@@ -316,13 +329,14 @@ void trim_ss(char ss[][50], char *s, int nested_ss[37], int nest_total, int ss_t
 		char *p = s;
 		for(j = nested_ss[i]; j < (ss_total - 1); j++) { /* shift up non-nested ss */
 			strcpy(ss[j], ss[j + 1]);
-			if((ss[j][0] > ss_refs[nested_ss[i]] && ss[j][0] <= 'Z') || (CH_IS_GNUM(ss[j][0]))) { /* ss-ss references -= 1 as per del  */
+			if((ss[j][0] > ss_refs[nested_ss[i]] && ss[j][0] <= 'Z') || (CH_IS_GNUM(ss[j][0]))) /* ss-ss references -= 1 as per del  */
 				(ss[j][0] != '0') ? (ss[j][0] -= 1) : (ss[j][0] += 42); /* if char '0', += 42 to go to 'Z' */
-			} else if((ss[j][1] > ss_refs[nested_ss[i]] && ss[j][1] <= 'Z') || (CH_IS_GNUM(ss[j][1]))) {
+			if((ss[j][1] > ss_refs[nested_ss[i]] && ss[j][1] <= 'Z') || (CH_IS_GNUM(ss[j][1])))
 				(ss[j][1] != '0') ? (ss[j][1] -= 1) : (ss[j][1] += 42);
-			}
 		}
-		for (int k = i; k < nest_total; k++) nested_ss[k] -= 1; /* nested-ss idxs -= 1 as per del */
+		for (int k = i; k < nest_total; k++) {
+			(nested_ss[k] != '0') ? (nested_ss[k] -= 1) : (nested_ss[k] += 42); /* nested-ss idxs -= 1 as per del */
+		}
 		ss[j][0] = '\0';
 		while(*p != '\0') { /* s ss references -= 1 ss_refs symbol as per del */
 			if((*p > ss_refs[nested_ss[i]] && *p <= 'Z') || (CH_IS_GNUM(*p))) { /* if *p = nested ref */
@@ -335,6 +349,6 @@ void trim_ss(char ss[][50], char *s, int nested_ss[37], int nest_total, int ss_t
 void print_ss(char ss[][50], int ss_total) {
 	printf("COMPR SUBSTRS:\n");
 	for(int i = 0; i < ss_total; i++){
-		(i < 26) ? printf("%c: %s\n", SS_N0_ID(i,1), ss[i]) : printf("%c: %s\n", SS_N0_ID(i,0), ss[i]);
+		(i < 26) ? printf("=> %c: %s\n", SS_N0_ID(i,1), ss[i]) : printf("%c: %s\n", SS_N0_ID(i,0), ss[i]);
 	}
 }
