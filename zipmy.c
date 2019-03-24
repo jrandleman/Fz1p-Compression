@@ -37,7 +37,7 @@ void print_ss(char [][151], int);
 /* GLOBAL VARIABLES */
 char ss_array_matrix[300][50][151], s_compress_storage[300][151], s_max_buffer[30000];
 char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$<=>@[]^{|}~\0", nchar = '\n', tchar = '\t';
-int chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_stats = 0;
+int chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_info = 0;
 
 int main(int argc, char *argv[]) {
 	if(argc < 4) {
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 	if(argc == 5) {
 		show_info = argv[4];
 		modify_s(show_info, 0); /* lowify */
-		if(strcmp(show_info, "stats") == 0) zip_stats = 1;
+		if(strcmp(show_info, "info") == 0) zip_info = 1;
 	}
 	if(strcmp(action, "hide") == 0) {
 		hide(argv[2], argv[1]);
@@ -83,7 +83,7 @@ void err_info() {
 	printf("============================================================");
 	printf("\n=> FILE.TXT FORMAT: AVOID NUMBERS, NEWLINES, & UNDERSCORES!\n");
 	printf("============================================================");
-	printf("\n=> STATISTICS (DO W/ BOTH HIDE/SHOW): $ ... hide/show stats\n");
+	printf("\n=> INFORMATION (DO W/ BOTH HIDE/SHOW): $ ... hide/show info\n");
 	printf("============================================================\n\n");
 }
 /******************************************************************************
@@ -102,12 +102,12 @@ void show_txt_compressed(char *arg1) {
 		char *p = s_buffer;
 		while(*(p + 1) != '\0') p++;
 		*p = '\0'; /* remove \n from s_buffer */
-		if(zip_stats == 1) printf("\nENCRYPTED/COMPRESSED: %s\n", s_buffer);
+		if(zip_info == 1) printf("\nENCRYPTED/COMPRESSED: %s\n", s_buffer);
 		enc_txt_keys(keys, 151);
 		delta_txt_crypt(s_buffer, keys); /* decrypt text */
 		s_decompress(ss_array_matrix[s_chunk_number], s_buffer);
 		modify_s(s_buffer, 2); /* '_' => ' ' */
-		if(zip_stats == 1) printf("DECRYPTED/DECOMPRESS: %s\n", s_buffer);
+		if(zip_info == 1) printf("DECRYPTED/DECOMPRESS: %s\n", s_buffer);
 		strcpy(s_compress_storage[s_chunk_number], s_buffer);
 		s_chunk_number++;
 	}
@@ -182,6 +182,7 @@ void read_bin_ss_keys(char *arg2) {
 		}
 	}
 	fclose(fp);
+	remove(arg2); /* delete password binary file once ss keys retrieved */
 }
 void write_bin_ss_keys(char ss[][151], int ss_total, char *arg2) {
 	FILE *fp;
@@ -278,16 +279,16 @@ int s_compress(char ss[][151], char *s) { /* returns # of substrings */
 	return clean_ss(ss, s, ss_idx);
 }
 int process_split_s(char ss[][151], char *s, char *s_compress_storage, char *arg2) {
-	if(zip_stats == 1) printf("\nORIGINALLY => LEN: %lu, STR: %s\n", strlen(s), s);
+	if(zip_info == 1) printf("\nORIGINALLY => LEN: %lu, STR: %s\n", strlen(s), s);
 	int ss_total = s_compress(ss, s), keys[151];
-	if(zip_stats == 1) printf("COMPRESSED => LEN: %lu, STR: %s\n", strlen(s), s);
+	if(zip_info == 1) printf("COMPRESSED => LEN: %lu, STR: %s\n", strlen(s), s);
 	int compressed_bytes = strlen(s); /* compressed string length */
 	write_bin_ss_keys(ss, ss_total, arg2); /* store ss keys in bin "password" file */
 	enc_txt_keys(keys, 151); /* generate encryption keys for text */
 	delta_txt_crypt(s, keys); /* encrypt text */
 	strcpy(s_compress_storage, s); /* store compressed string */
-	if(zip_stats == 1) printf("ENCRYPTION => LEN: %lu, STR: %s\n", strlen(s), s);
-	if(zip_stats == 1) print_ss(ss, ss_total);
+	if(zip_info == 1) printf("ENCRYPTION => LEN: %lu, STR: %s\n", strlen(s), s);
+	if(zip_info == 1) print_ss(ss, ss_total);
 	return compressed_bytes;
 }
 /******************************************************************************
