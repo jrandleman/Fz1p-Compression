@@ -5,37 +5,38 @@
 #include <ctype.h>
 #define CH_IS_GNUM(ch_n_inst) ((ch_n_inst) >= '0' && (ch_n_inst) <= '9')
 #define CH_IS_GCAP(ch_c_inst) ((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z')
-#define SS_CH_ID(ch_c_idx) ((CH_IS_GCAP(ch_c_idx)) ? ((ch_c_idx) - 65) : (ch_c_idx - 22)) /* 'A' => 0, '0' => 26 */
-#define SS_N0_ID(ch_n_idx,flag_1ch_0int) ((flag_1ch_0int == 1) ? ((ch_n_idx) + 65) : ((ch_n_idx) + 22)) /* 0 => 'A', 26 => '0' */
-
 /* 'HIDE' FILE FUNCTIONS */
 void hide(char *, char *);
-void write_bin_ss_keys(char [][126], int, char *);
+void write_bin_ss_keys(char [][151], int, char *);
 void read_txt_engl(char *, char *);
 void write_txt_compressed(char *);
 /* 'SHOW' FILE FUNCTIONS */
 void show(char *, char *);
 void read_bin_ss_keys(char *);
 void show_txt_compressed(char *);
-/* BOTH */
+/* BOTH => ERROR/ENCRYPTION FUNCTIONS */
 void err_info();
 void delta_txt_crypt(char *, int *);
 void enc_txt_keys(int *, int);
-
+/* CHARACTER/COMPRESSION FUNCTIONS */
 void rm_nxt_ch(char *, int);
 void modify_s(char *, int);
-void s_decompress(char [][126], char *);
-int s_compress(char [][126], char *);
-int process_split_s(char [][126], char *, char *, char *);
-
-void store_ss(char [][126], char *, int);
-int clean_ss(char [][126], char *, int);
-void splice_ss(char [][126], int [37], int, int);
-void trim_ss(char [][126], char *, int [37], int, int);
-void print_ss(char [][126], int);
-
-char ss_array_matrix[300][37][126], s_compress_storage[300][126], s_max_buffer[30000];
-char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\0", nchar = '\n', tchar = '\t';
+void s_decompress(char [][151], char *);
+int s_compress(char [][151], char *);
+int process_split_s(char [][151], char *, char *, char *);
+/* SUBSTRING REFERENCE KEY HANDLER FUNCTIONS */
+int is_ss_ref(int, char);
+int ss_ch_index(char);
+char adjust_ref_char(char);
+/* SUBSTRING FUNCTIONS */
+void store_ss(char [][151], char *, int);
+int clean_ss(char [][151], char *, int);
+void splice_ss(char [][151], int [50], int, int);
+void trim_ss(char [][151], char *, int [50], int, int);
+void print_ss(char [][151], int);
+/* GLOBAL VARIABLES */
+char ss_array_matrix[300][50][151], s_compress_storage[300][151], s_max_buffer[30000];
+char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$<=>@[]^{|}~\0", nchar = '\n', tchar = '\t';
 int chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_stats = 0;
 
 int main(int argc, char *argv[]) {
@@ -61,10 +62,10 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 /******************************************************************************
-* HIDE / SHOW FUNCITONS
+* HIDE / SHOW FUNCTIONS
 ******************************************************************************/
 void hide(char *arg2, char *arg1) {
-	read_txt_engl(arg2, arg1); /* process text file in 125 char chunks */
+	read_txt_engl(arg2, arg1); /* process text file in 150 char chunks */
 	write_txt_compressed(arg1); /* write compressed string to text file */
 	/* output results */
 	float bytes_saved = 100*(1.000000 - ((float)compressed_bytes)/((float)original_bytes));
@@ -86,23 +87,23 @@ void err_info() {
 	printf("============================================================\n\n");
 }
 /******************************************************************************
-* TEXT FILE FUNCITONS
+* TEXT FILE FUNCTIONS
 ******************************************************************************/
 void show_txt_compressed(char *arg1) {
 	FILE *fp;
-	char s_buffer[125];
-	int s_chunk_number = 0, keys[126];
+	char s_buffer[150];
+	int s_chunk_number = 0, keys[151];
 	if((fp = fopen(arg1, "r")) == NULL) {
 		printf("(!!!) ERR READING COMPRESSED TEXT FILE (!!!)\n");
 		fclose(fp);
 		return;
 	}
-	while(fgets(s_buffer, 125, fp) > 0) {
+	while(fgets(s_buffer, 150, fp) > 0) { /* GET COMPRESSED TEXT */
 		char *p = s_buffer;
 		while(*(p + 1) != '\0') p++;
 		*p = '\0'; /* remove \n from s_buffer */
 		if(zip_stats == 1) printf("\nENCRYPTED/COMPRESSED: %s\n", s_buffer);
-		enc_txt_keys(keys, 126);
+		enc_txt_keys(keys, 151);
 		delta_txt_crypt(s_buffer, keys); /* decrypt text */
 		s_decompress(ss_array_matrix[s_chunk_number], s_buffer);
 		modify_s(s_buffer, 2); /* '_' => ' ' */
@@ -117,7 +118,7 @@ void show_txt_compressed(char *arg1) {
 	}
 	fclose(fp);
 
-	if((fp = fopen(arg1, "w")) == NULL) {
+	if((fp = fopen(arg1, "w")) == NULL) { /* PUT DECOMPRESSED TEXT */
 		printf("(!!!) ERR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
 		fclose(fp);
 		return;
@@ -127,7 +128,7 @@ void show_txt_compressed(char *arg1) {
 	return;
 }
 void read_txt_engl(char *arg2, char *arg1) {
-	char ss[37][126], s_chunk[126];
+	char ss[50][151], s_chunk[151];
 	int ret;
 	FILE *fp;
 	if((fp = fopen(arg1, "r")) == NULL) {
@@ -135,7 +136,7 @@ void read_txt_engl(char *arg2, char *arg1) {
 		fclose(fp);
 		return;
 	}
-	while((ret = fread(s_chunk, sizeof(char), 125, fp)) > 0) {
+	while((ret = fread(s_chunk, sizeof(char), 150, fp)) > 0) {
 		s_chunk[ret] = '\0';
 		original_bytes += ret;
 		compressed_bytes += process_split_s(ss, s_chunk, s_compress_storage[chunk_count], arg2);
@@ -157,10 +158,10 @@ void write_txt_compressed(char *arg1) {
 	fclose(fp);
 }
 /******************************************************************************
-* BINARY FILE FUNCITONS
+* BINARY FILE FUNCTIONS
 ******************************************************************************/
 void read_bin_ss_keys(char *arg2) {
-	char ss_buffer[37];
+	char ss_buffer[50];
 	int n = 0, m = 0; /* m - 2D ss array (sentence), n - ss (word) => WRT ss_array_matrix[m][n][] */
 	FILE *fp;
 	if((fp = fopen(arg2, "rb")) == NULL) {
@@ -168,11 +169,11 @@ void read_bin_ss_keys(char *arg2) {
 		fclose(fp);
 		return;
 	}
-	while(fread(ss_buffer, sizeof(char), 37, fp) == 37) {
+	while(fread(ss_buffer, sizeof(char), 50, fp) == 50) {
 		char *p = ss_buffer, *q = ss_array_matrix[m][n];
 		while(*p != '\0') *q++ = *p++; /* copy ss from bin to 2d ss array in 3d matrix */
 		*q = '\0';  /* terminate ss */
-		if(ss_buffer[36] == '\n') {
+		if(ss_buffer[49] == '\n') {
 			ss_array_matrix[m][n+1][0] = '\0'; /* terminate ss 2d array */
 			m++; /* move to next 2d ss array (1 per s_chunk) in 3d matrix */
 			n = 0; /* start from row (ss) 0 */
@@ -182,7 +183,7 @@ void read_bin_ss_keys(char *arg2) {
 	}
 	fclose(fp);
 }
-void write_bin_ss_keys(char ss[][126], int ss_total, char *arg2) {
+void write_bin_ss_keys(char ss[][151], int ss_total, char *arg2) {
 	FILE *fp;
 	(chunk_count == 0) ? (fp = fopen(arg2, "wb")) : (fp = fopen(arg2, "ab"));
 	if(fp == NULL) {
@@ -191,14 +192,14 @@ void write_bin_ss_keys(char ss[][126], int ss_total, char *arg2) {
 		return;
 	}
 	for(int i = 0; i < ss_total; i++) {
-		fwrite(ss[i], sizeof(char), 36, fp);
+		fwrite(ss[i], sizeof(char), 49, fp);
 		if(i < ss_total - 1) fwrite(&tchar, sizeof(char), 1, fp);
 	}
 	fwrite(&nchar, sizeof(char), 1, fp);
 	fclose(fp);
 }
 /******************************************************************************
-* ENCRYPTION FUNCITONS
+* ENCRYPTION FUNCTIONS
 ******************************************************************************/
 void delta_txt_crypt(char *char_array, int *key_array) {
 	int *n = key_array;
@@ -209,7 +210,7 @@ void enc_txt_keys(int *key_array, int key_quantity) {
 	for(; key_quantity-- > 0; *key_array++ = (rand()%11+5));
 }
 /******************************************************************************
-* CHAR HANDLER FUNCITONS
+* CHAR HANDLER FUNCTIONS
 ******************************************************************************/
 void rm_nxt_ch(char *q, int ss_ref_idx) {
 	sprintf(q, "%c%s", ss_refs[ss_ref_idx], q + 1); /* replace 1st char with symbol */
@@ -236,14 +237,14 @@ void modify_s(char *s, int sp_flag) {
 	}
 }
 /******************************************************************************
-* DE/COMPRESSION FUNCITONS
+* DE/COMPRESSION FUNCTIONS
 ******************************************************************************/
-void s_decompress(char ss[][126], char *s) {
+void s_decompress(char ss[][151], char *s) {
 	char *p = s;
-	char t[strlen(s)];
+	char t[151];
 	while(*p != '\0') {
-		if(CH_IS_GCAP(*p) == 1 || CH_IS_GNUM(*p) == 1) {
-			sprintf(t, "%s%s", ss[SS_CH_ID(*p)], p+1);
+		if(is_ss_ref(0, *p) == 1) {
+			sprintf(t, "%s%s", ss[ss_ch_index(*p)], p+1);
 			sprintf(p, "%s", t);
 			p = s;
 		} else {
@@ -251,7 +252,7 @@ void s_decompress(char ss[][126], char *s) {
 		}
 	}
 }
-int s_compress(char ss[][126], char *s) { /* returns # of substrings */
+int s_compress(char ss[][151], char *s) { /* returns # of substrings */
 	modify_s(s, 1); /* lowify & ' ' => '_' */
 	int ss_idx = 0, found;
 	char *p = s, *r;
@@ -276,13 +277,13 @@ int s_compress(char ss[][126], char *s) { /* returns # of substrings */
 	}
 	return clean_ss(ss, s, ss_idx);
 }
-int process_split_s(char ss[][126], char *s, char *s_compress_storage, char *arg2) {
+int process_split_s(char ss[][151], char *s, char *s_compress_storage, char *arg2) {
 	if(zip_stats == 1) printf("\nORIGINALLY => LEN: %lu, STR: %s\n", strlen(s), s);
-	int ss_total = s_compress(ss, s), keys[126];
+	int ss_total = s_compress(ss, s), keys[151];
 	if(zip_stats == 1) printf("COMPRESSED => LEN: %lu, STR: %s\n", strlen(s), s);
 	int compressed_bytes = strlen(s); /* compressed string length */
 	write_bin_ss_keys(ss, ss_total, arg2); /* store ss keys in bin "password" file */
-	enc_txt_keys(keys, 126); /* generate encryption keys for text */
+	enc_txt_keys(keys, 151); /* generate encryption keys for text */
 	delta_txt_crypt(s, keys); /* encrypt text */
 	strcpy(s_compress_storage, s); /* store compressed string */
 	if(zip_stats == 1) printf("ENCRYPTION => LEN: %lu, STR: %s\n", strlen(s), s);
@@ -290,22 +291,68 @@ int process_split_s(char ss[][126], char *s, char *s_compress_storage, char *arg
 	return compressed_bytes;
 }
 /******************************************************************************
-* (S)UB(S)TRING FUNCITONS
+* (S)UB(S)TRING REFERENCE KEY ANALYSIS FUNCTIONS
 ******************************************************************************/
-void store_ss(char ss[][126], char *p, int ss_idx) {
+int is_ss_ref(int start, char ch) {
+	char *p = &ss_refs[start];
+	while(*p != '\0') {
+		if(*p == ch) return 1;
+		p++;
+	}
+	return 0;
+}
+int ss_ch_index(char ch_c_idx) {
+	if(CH_IS_GCAP(ch_c_idx) == 1) {
+		return (int)(ch_c_idx - 65);
+	} else if(CH_IS_GNUM(ch_c_idx) == 1 || (ch_c_idx >= '<' && ch_c_idx <= '>')) {
+		return (int)(ch_c_idx - 22);
+	} else if(ch_c_idx == '#' || ch_c_idx == '$') {
+		return (int)(ch_c_idx + 1);
+	} else if(ch_c_idx == '@') {
+		return (int)(ch_c_idx - 23);
+	} else if(ch_c_idx == '[') {
+		return (int)(ch_c_idx - 49);
+	} else if(ch_c_idx == ']' || ch_c_idx == '^') {
+		return (int)(ch_c_idx - 50);
+	} else {
+		return (int)(ch_c_idx - 78);
+	}
+
+}
+char adjust_ref_char(char ss_ref_ch) {
+	if(ss_ref_ch == '0') {
+		return (char)(ss_ref_ch + 42); /* become Z */
+	} else if(ss_ref_ch == '#') { /* become 9 */
+		return (char)(ss_ref_ch + 22);
+	} else if(ss_ref_ch == '<') { /* become $ */
+		return (char)(ss_ref_ch - 24);
+	} else if(ss_ref_ch == '@' || ss_ref_ch == ']') { /* become > OR [ */
+		return (char)(ss_ref_ch - 2);
+	} else if(ss_ref_ch == '[') { /* become @ */
+		return (char)(ss_ref_ch - 27);
+	} else if(ss_ref_ch == '{') { /* become ^ */
+		return (char)(ss_ref_ch - 29);
+	} else { /* become previous ss_refs elem */
+		return (char)(ss_ref_ch - 1);
+	}
+}
+/******************************************************************************
+* (S)UB(S)TRING FUNCTIONS
+******************************************************************************/
+void store_ss(char ss[][151], char *p, int ss_idx) {
 	sprintf(ss[ss_idx], "%c%c", *p, *(p + 1));
 }
-int clean_ss(char ss[][126], char *s, int ss_total) {
+int clean_ss(char ss[][151], char *s, int ss_total) {
 	char *p;
-	int nest_idx = 0, nested_ss[37]; /* nested ss only ref'd by other ss, arr holds their idxs */
+	int nest_idx = 0, nested_ss[50]; /* nested ss only ref'd by other ss, arr holds their idxs */
 	for(int i = 0; i < ss_total; i++) {
 		p = s;
 		while(*p != '\0') {
-			if((CH_IS_GCAP(*p) == 1 || CH_IS_GNUM(*p) == 1) && *p == ss_refs[i]) break; /* if s char == ss ref */
+			if(*p == ss_refs[i]) break; /* if s char == ss ref */
 			p++;
 		}
 		if(*p == '\0') { /* if ss_refs[i] !in s, i == nested ss ref idx */
-			nested_ss[nest_idx] = i;
+			nested_ss[nest_idx] = i; /* nested ss idxs stored sequentially relative to ss_refs order */
 			nest_idx++;
 		}
 	}
@@ -313,13 +360,13 @@ int clean_ss(char ss[][126], char *s, int ss_total) {
 	trim_ss(ss, s, nested_ss, nest_idx, ss_total); /* adjust ss & s references as per rmvd nested ss */
 	return (ss_total - nest_idx); /* actual ss total = original ss total - nested ss total */
 }
-void splice_ss(char ss[][126], int nested_ss[37], int nest_total, int ss_total) {
+void splice_ss(char ss[][151], int nested_ss[50], int nest_total, int ss_total) {
 	for(int i = 0; i < nest_total; i++) { /* traverse nested ss array */
 		for(int j = 0; j < ss_total; j++) { /* traverse ss array */
 			int curr_ss_len = strlen(ss[j]);
 			for(int l = 0; l < curr_ss_len; l++) { /* traverse ss */
 				if(ss[j][l] == ss_refs[nested_ss[i]]) { /* if ss has nested ss reference */
-					char nested_elem[126]; /* clone to hold nested ref value */
+					char nested_elem[151]; /* clone to hold nested ref value */
 					strcpy(nested_elem, ss[nested_ss[i]]); /* clone nested ref val */
 					/* splice post-nested ref ss tail to end of nested ref val */
 					strcpy(&nested_elem[strlen(nested_elem)], &ss[j][l + 1]); 
@@ -329,7 +376,7 @@ void splice_ss(char ss[][126], int nested_ss[37], int nest_total, int ss_total) 
 		}
 	}
 }
-void trim_ss(char ss[][126], char *s, int nested_ss[37], int nest_total, int ss_total) {
+void trim_ss(char ss[][151], char *s, int nested_ss[50], int nest_total, int ss_total) {
 	int i, j;
 	for(i = 0; i < nest_total; i++) { /* delete nested-ss */
 		char *p = s;
@@ -337,25 +384,24 @@ void trim_ss(char ss[][126], char *s, int nested_ss[37], int nest_total, int ss_
 			strcpy(ss[j], ss[j + 1]); /* shift up non-nested ss to delete nested-ss */
 			int curr_ss_len = strlen(ss[j]);
 			for(int l = 0; l < curr_ss_len; l++) {
-				if((ss[j][l] > ss_refs[nested_ss[i]] && ss[j][l] <= 'Z') || (CH_IS_GNUM(ss[j][l]))) /* ss-ss references -= 1 as per del  */
-					(ss[j][l] != '0') ? (ss[j][l] -= 1) : (ss[j][l] += 42); /* if char '0', += 42 to go to 'Z' */
+				if(is_ss_ref((nested_ss[i]+ 1), ss[j][l]) == 1)/* ss-ss references -= 1 ss_refs val as per del  */
+					ss[j][l] = adjust_ref_char(ss[j][l]);
 			}
 		}
 		for (int k = i; k < nest_total; k++) {
-			(nested_ss[k] != '0') ? (nested_ss[k] -= 1) : (nested_ss[k] += 42); /* nested-ss idxs -= 1 as per del */
+			nested_ss[k] = adjust_ref_char(nested_ss[k]); /* nested-ss idxs -= 1 ss_refs val as per del */
 		}
 		ss[j][0] = '\0';
-		while(*p != '\0') { /* s ss references -= 1 ss_refs symbol as per del */
-			if((*p > ss_refs[nested_ss[i]] && *p <= 'Z') || (CH_IS_GNUM(*p))) { /* if *p = nested ref */
-				(*p != '0') ? (*p -= 1) : (*p += 42);
-			}
+		while(*p != '\0') { /* s ss references -= 1 ss_refs val as per del */
+			if(is_ss_ref((nested_ss[i]+ 1), *p) == 1) /* if *p = nested ref */
+				*p = adjust_ref_char(*p);
 			p++;
 		}
 	}
 }
-void print_ss(char ss[][126], int ss_total) {
+void print_ss(char ss[][151], int ss_total) {
 	printf("COMPR SUBSTRS:\n");
-	for(int i = 0; i < ss_total; i++){
-		(i < 26) ? printf("=> %c: %s\n", SS_N0_ID(i,1), ss[i]) : printf("%c: %s\n", SS_N0_ID(i,0), ss[i]);
+	for(int i = 0; i < ss_total; i++) {
+		printf("=> %c: %s\n", ss_refs[i], ss[i]);
 	}
 }
