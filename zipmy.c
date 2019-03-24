@@ -132,9 +132,9 @@ void read_txt_engl(char *arg2, char *arg1) {
 	int ret;
 	FILE *fp;
 	if((fp = fopen(arg1, "r")) == NULL) {
-		printf("(!!!) ERR READING TEXT FILE (!!!) \n");
+		printf("\n(!!!) ERR READING TEXT FILE (!!!)\n\n");
 		fclose(fp);
-		return;
+		exit(0);
 	}
 	while((ret = fread(s_chunk, sizeof(char), 150, fp)) > 0) {
 		s_chunk[ret] = '\0';
@@ -165,9 +165,9 @@ void read_bin_ss_keys(char *arg2) {
 	int n = 0, m = 0; /* m - 2D ss array (sentence), n - ss (word) => WRT ss_array_matrix[m][n][] */
 	FILE *fp;
 	if((fp = fopen(arg2, "rb")) == NULL) {
-		printf("(!!!) ERR PROCESSING PASSWORD (!!!)\n");
+		printf("\n(!!!) ERR PROCESSING PASSWORD (!!!)\n\n");
 		fclose(fp);
-		return;
+		exit(0);
 	}
 	while(fread(ss_buffer, sizeof(char), 50, fp) == 50) {
 		char *p = ss_buffer, *q = ss_array_matrix[m][n];
