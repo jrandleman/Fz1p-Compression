@@ -3,11 +3,11 @@ Compress &amp; Encrypt Your Text Files!
 ---------------------------------------
 
 $ gcc -o zipmy zipmy.c</br>
-$ ./zipmy textfilename.txt yourpassword (hide/show) (stats)
+$ ./zipmy textfilename.txt yourpassword (hide/show) (info)
 
 * Enter \<hide> to compress and encrypt your text file
 * Enter \<show> to decrypt and decompress text file
-* Enter \<stats> to print compression/encryption statistics during run
+* Enter \<info> to print compression/encryption information during run
   * _unique password per text file!_
   
 **===============================================================**<br/>
