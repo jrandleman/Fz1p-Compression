@@ -1,5 +1,5 @@
 # Zip_Text
-Compress &amp; Encrypt Your Text Files!
+_Lossless Compression &amp; Encryption For Text Files!_
 ---------------------------------------
 
 $ gcc -o zipmy zipmy.c</br>
