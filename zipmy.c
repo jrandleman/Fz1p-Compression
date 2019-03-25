@@ -13,11 +13,10 @@ void write_txt_compressed(char *);
 /* 'SHOW' FILE FUNCTIONS */
 void show(char *, char *);
 void read_bin_ss_keys(char *);
-void show_txt_compressed(char *);
+void show_txt_compressed(char *, char *);
 /* BOTH => ERROR/ENCRYPTION FUNCTIONS */
 void err_info();
-void delta_txt_crypt(char *, int *);
-void enc_txt_keys(int *, int);
+void delta_txt_crypt(char *, char *);
 /* CHARACTER/COMPRESSION FUNCTIONS */
 void rm_nxt_ch(char *, int);
 void modify_s(char *, int);
@@ -44,7 +43,6 @@ int main(int argc, char *argv[]) {
 		err_info();
 		return 0;
 	}
-	srand((char)argv[2]);
 	char *action = argv[3], *show_info;
 	modify_s(action, 0); /* lowify */
 	if(argc == 5) {
@@ -74,7 +72,7 @@ void hide(char *arg2, char *arg1) {
 }
 void show(char *arg2, char *arg1) {
 	read_bin_ss_keys(arg2);
-	show_txt_compressed(arg1);
+	show_txt_compressed(arg2, arg1);
 	printf("\n>> %s => DECOMPRESSED AND DECRYPTED!\n\n", arg1);
 }
 void err_info() {
@@ -89,10 +87,10 @@ void err_info() {
 /******************************************************************************
 * TEXT FILE FUNCTIONS
 ******************************************************************************/
-void show_txt_compressed(char *arg1) {
+void show_txt_compressed(char *arg2, char *arg1) {
 	FILE *fp;
 	char s_buffer[150];
-	int s_chunk_number = 0, keys[151];
+	int s_chunk_number = 0;
 	if((fp = fopen(arg1, "r")) == NULL) {
 		printf("(!!!) ERR READING COMPRESSED TEXT FILE (!!!)\n");
 		fclose(fp);
@@ -103,8 +101,7 @@ void show_txt_compressed(char *arg1) {
 		while(*(p + 1) != '\0') p++;
 		*p = '\0'; /* remove \n from s_buffer */
 		if(zip_info == 1) printf("\nENCRYPTED/COMPRESSED: %s\n", s_buffer);
-		enc_txt_keys(keys, 151);
-		delta_txt_crypt(s_buffer, keys); /* decrypt text */
+		delta_txt_crypt(s_buffer, arg2); /* decrypt text */
 		s_decompress(ss_array_matrix[s_chunk_number], s_buffer);
 		modify_s(s_buffer, 2); /* '_' => ' ' */
 		if(zip_info == 1) printf("DECRYPTED/DECOMPRESS: %s\n", s_buffer);
@@ -200,15 +197,22 @@ void write_bin_ss_keys(char ss[][151], int ss_total, char *arg2) {
 	fclose(fp);
 }
 /******************************************************************************
-* ENCRYPTION FUNCTIONS
+* ENCRYPTION FUNCTION
 ******************************************************************************/
-void delta_txt_crypt(char *char_array, int *key_array) {
-	int *n = key_array;
-	char *p = char_array, sp = ' ';
-	while(*p != '\0') *p++ ^= *n++;
-}
-void enc_txt_keys(int *key_array, int key_quantity) {
-	for(; key_quantity-- > 0; *key_array++ = (rand()%11+5));
+void delta_txt_crypt(char *char_array, char *arg2) {
+	char *pass = arg2, *s = char_array;
+	int key_size = (1 + ((strlen(s) - 1)/strlen(pass))), ch_count = 0, idx = 0;	
+	srand((char)pass[0]);
+	while(*s != '\0') {
+		if(ch_count == key_size) {
+			ch_count = 0;
+			idx++;
+			srand((char)pass[idx]);
+		}
+		*s ^= (rand()%11+5);
+		ch_count++;
+		s++;
+	}
 }
 /******************************************************************************
 * CHAR HANDLER FUNCTIONS
@@ -280,12 +284,11 @@ int s_compress(char ss[][151], char *s) { /* returns # of substrings */
 }
 int process_split_s(char ss[][151], char *s, char *s_compress_storage, char *arg2) {
 	if(zip_info == 1) printf("\nORIGINALLY => LEN: %lu, STR: %s\n", strlen(s), s);
-	int ss_total = s_compress(ss, s), keys[151];
+	int ss_total = s_compress(ss, s);
 	if(zip_info == 1) printf("COMPRESSED => LEN: %lu, STR: %s\n", strlen(s), s);
 	int compressed_bytes = strlen(s); /* compressed string length */
 	write_bin_ss_keys(ss, ss_total, arg2); /* store ss keys in bin "password" file */
-	enc_txt_keys(keys, 151); /* generate encryption keys for text */
-	delta_txt_crypt(s, keys); /* encrypt text */
+	delta_txt_crypt(s, arg2); /* encrypt text */
 	strcpy(s_compress_storage, s); /* store compressed string */
 	if(zip_info == 1) printf("ENCRYPTION => LEN: %lu, STR: %s\n", strlen(s), s);
 	if(zip_info == 1) print_ss(ss, ss_total);
