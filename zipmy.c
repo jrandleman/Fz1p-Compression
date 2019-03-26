@@ -19,8 +19,8 @@ void err_info();
 void delta_txt_crypt(char *, char *);
 /* COMMON WORD SUBSTITUTION FUNCTIONS */
 void splice_str(char *, char *, int, int);
-void delta_sub_words(char *, int, char [][50], char [][50]);
-void print_cw_used();
+int delta_sub_words(char *, int, char [][50], char [][50]);
+void print_cw_used(int);
 /* CHARACTER/COMPRESSION FUNCTIONS */
 void rm_nxt_ch(char *, int);
 void modify_s(char *, int);
@@ -38,7 +38,7 @@ void splice_ss(char [][151], int [50], int, int);
 void trim_ss(char [][151], char *, int [50], int, int);
 void print_ss(char [][151], int);
 /* COMMON WORD SUBSTITUTIONS */
-char cw_keys[141][50] = { /* single letter */
+char cw_keys[220][50] = { /* single letter */
 	"_b_", "_d_", "_e_", "_f_", "_g_", "_h_", "_j_", "_k_", "_l_", "_m_", "_n_", "_o_", 
 	"_p_", "_q_", "_r_", "_s_", "_t_", "_u_", "_v_", "_w_", "_x_", "_y_", "_z_", 
 	/* two-letter 1 */
@@ -55,9 +55,19 @@ char cw_keys[141][50] = { /* single letter */
 	"_gq_", "_gr_", "_gs_", "_gt_", "_gv_", "_gw_", "_gx_", "_gz_", "_hb_", "_hc_", 
 	"_hd_", "_hf_", "_hg_", "_hh_", "_hk_", "_hl_", "_hm_", "_hn_", "_hp_", 
 	"_hq_", "_hr_", "_hs_", "_ht_", "_hv_", "_hw_", "_hx_", "_hz_", "_kb_", "_kc_", 
-	"_kd_", "_kf_"
+	"_kd_", "_kf_", 
+	/* NO-SPACE */
+	"?a", "?b", "?c", "?d", "?e", "?f", "?g", "?h", "?i", "?j", "?k", 
+	"?l", "?m", "?n", "?o", "?p", "?q", "?r", "?s", "?t", "?u", "?v", 
+	"?w", "?x", "?y", "?z", "!a", "!b", "!c", "!d", "!e", "!f", "!g", 
+	"!h", "!i", 
+	"!j", "!k", "!l", "!m", "!n", "!o", "!p", "!q", "!r", 
+	"!s", "!t", "!u", "!v", "!w", "!x", "!y", "!z", "`a", 
+	"`b", "`c", "`d", "`e", "`f", "`g", "`h", "`i", "`j", 
+	"`k", "`l", "`m", "`n", "`o", "`p", 
+	"`q", "`r", "`s", "`t", "`u", "`v", "`w", "`x", "`y", "`z"
 };
-char cw_word[141][50] = { /* single letter */
+char cw_word[220][50] = { /* single letter */
 	"_at_", "_as_", "_an_", "_be_", "_by_", "_do_", "_go_", "_in_", "_is_", "_it_", "_my_", "_of_", 
 	"_on_", "_or_", "_to_", "_up_", "_and_", "_the_", "_have_", "_that_", "_this_", "_with_", "_you_", 
 	/* two-letter 1 */
@@ -74,12 +84,23 @@ char cw_word[141][50] = { /* single letter */
 	"_next_", "_part_", "_seem_", "_same_", "_tell_", "_week_", "_child_", "_company_", "_different_", "_early_", 
 	"_government_", "_group_", "_great_", "_important_", "_leave_", "_little_", "_large_", "_number_", "_not_", 
 	"_person_", "_place_", "_point_", "_problem_", "_public_", "_right_", "_small_", "_thing_", "_world_", "_woman_", 
-	"_young_", "_would_"
+	"_young_", "_would_", 
+	/* NO-SPACE */
+	"and", "not", "the", "you", "any", "all", "but", "can", "day", "get", "his", 
+	"her", "how", "now", "new", "out", "one", "our", "use", "way", "who", "its", 
+	"end", "see", "she", "ask", "big", "bad", "eye", "man", "own", "old", "try", 
+	"for", "ear", 
+	"that", "this", "with", "come", "back", "just", "into", "know", "like", 
+	"make", "most", "them", "over", "some", "time", "take", "work", "will", 
+	"then", "than", "well", "even", "able", "case", "call", "fact", "feel", 
+	"hand", "high", "last", "long", "part", "tell", 
+	"after", "other", "there", "group", "place", "point", "right", "thing", 
+	"person", "different"
 };
 /* GLOBAL VARIABLES */
 char ss_array_matrix[300][50][151], s_compress_storage[300][151], s_max_buffer[30000];
 char ss_refs[] ="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$<=>@[]^{|}~\0", nchar = '\n', tchar = '\t';
-int cw_idxs[141], chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_info = 0;
+int cw_idxs[220], chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_info = 0;
 
 int main(int argc, char *argv[]) {
 	if(argc < 4) {
@@ -248,13 +269,13 @@ void splice_str(char *s, char *sub, int splice_len, int size) {
 	sprintf(temp, "%s%s", sub, s + splice_len);
 	strcpy(s, temp);
 }
-void delta_sub_words(char *s, int total_len, char remove[][50], char insert[][50]) {
+int delta_sub_words(char *s, int total_len, char remove[][50], char insert[][50]) {
 	int count = 0, word_len, i, j;
-	for(i = 0; i < 141; i++) {
+	for(i = 0; i < 220; i++) {
 		char *p = s;
 		word_len = strlen(remove[i]);
 		while(*p != '\0') {
-			if(*p == '_') {
+			if(*p == remove[i][0]) {
 				for(j = 0; j < word_len; j++) if(*(p + j) != remove[i][j]) break;
 				if(j == word_len) { /* if word in s is common word */
 					splice_str(p, insert[i], word_len, total_len);
@@ -267,14 +288,12 @@ void delta_sub_words(char *s, int total_len, char remove[][50], char insert[][50
 			p++;
 		}
 	}
-	if(zip_info == 1) for(; count < 141; count++) cw_idxs[count] = 999; /* 999 == empty cw_idxs cell */
+	return count;
 }
-void print_cw_used() {
-	int i = 0;
+void print_cw_used(int sub_size) {
 	printf("SUBSTITUTIONS:\n");
-	while(cw_idxs[i] != 999) {
+	for(int i = 0; i < sub_size; i++) {
 		printf("=> %s: %s\n", cw_keys[cw_idxs[i]], cw_word[cw_idxs[i]]);
-		i++;
 	}
 }
 /******************************************************************************
@@ -340,10 +359,10 @@ void s_decompress(char ss[][151], char *s) {
 }
 int s_compress(char ss[][151], char *s) { /* returns # of substrings */
 	modify_s(s, 1); /* lowify & ' ' => '_' */
-	delta_sub_words(s, 151, cw_word, cw_keys); /* remove common words, insert keys */
+	int sub_word_count = delta_sub_words(s, 151, cw_word, cw_keys); /* remove common words, insert keys */
 	if(zip_info == 1) {
 		printf("SUBD WORDS => LEN: %lu, STR: %s\n", strlen(s), s);
-		print_cw_used(); /* print common words subbed and associated keys */
+		print_cw_used(sub_word_count); /* print common words subbed and associated keys */
 	}
 	int ss_idx = 0, found;
 	char *p = s, *r;
