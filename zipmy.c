@@ -331,7 +331,13 @@ void modify_s(char *s, int sp_flag) {
 	} else if(sp_flag == 1) { /* lowercase + underscores for spaces (encrypt) */
 		while(*p != '\0') {
 			*p = tolower(*p);
-			if(*p == space) *p = under_s;
+			if(*p == space) {
+				*p = under_s;
+			} else if(*p == '[' || *p == '{'){
+				*p = '(';
+			} else if(*p == ']' || *p == '}'){
+				*p = ')';
+			}
 			p++;
 		}
 	} else { /* spaces for underscores (decrypt) */
