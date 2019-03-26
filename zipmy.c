@@ -38,7 +38,7 @@ void splice_ss(char [][151], int [50], int, int);
 void trim_ss(char [][151], char *, int [50], int, int);
 void print_ss(char [][151], int);
 /* COMMON WORD SUBSTITUTIONS */
-char cw_keys[220][50] = { /* single letter */
+char cw_keys[222][50] = { /* single letter */
 	"_b_", "_d_", "_e_", "_f_", "_g_", "_h_", "_j_", "_k_", "_l_", "_m_", "_n_", "_o_", 
 	"_p_", "_q_", "_r_", "_s_", "_t_", "_u_", "_v_", "_w_", "_x_", "_y_", "_z_", 
 	/* two-letter 1 */
@@ -57,17 +57,16 @@ char cw_keys[220][50] = { /* single letter */
 	"_hq_", "_hr_", "_hs_", "_ht_", "_hv_", "_hw_", "_hx_", "_hz_", "_kb_", "_kc_", 
 	"_kd_", "_kf_", 
 	/* NO-SPACE */
-	"?a", "?b", "?c", "?d", "?e", "?f", "?g", "?h", "?i", "?j", "?k", 
-	"?l", "?m", "?n", "?o", "?p", "?q", "?r", "?s", "?t", "?u", "?v", 
+	"`z", "``", "`r", "`s", "`t", "`u", "`v", "`w", "`x", "`y", 
+	"`k", "`l", "`m", "`n", "`o", "`p", "`q", 
+	"`b", "`c", "`d", "`e", "`f", "`g", "`h", "`i", "`j", "!s", 
+	"!t", "!u", "!v", "!w", "!x", "!y", "!z", "`a", "!j", "!k", 
+	"!l", "!m", "!n", "!o", "!p", "!q", "!r", "!h", "!i", "`!", 
 	"?w", "?x", "?y", "?z", "!a", "!b", "!c", "!d", "!e", "!f", "!g", 
-	"!h", "!i", 
-	"!j", "!k", "!l", "!m", "!n", "!o", "!p", "!q", "!r", 
-	"!s", "!t", "!u", "!v", "!w", "!x", "!y", "!z", "`a", 
-	"`b", "`c", "`d", "`e", "`f", "`g", "`h", "`i", "`j", 
-	"`k", "`l", "`m", "`n", "`o", "`p", 
-	"`q", "`r", "`s", "`t", "`u", "`v", "`w", "`x", "`y", "`z"
+	"?l", "?m", "?n", "?o", "?p", "?q", "?r", "?s", "?t", "?u", "?v", 
+	"?a", "?b", "?c", "?d", "?e", "?f", "?g", "?h", "?i", "?j", "?k"
 };
-char cw_word[220][50] = { /* single letter */
+char cw_word[222][50] = { /* single letter */
 	"_at_", "_as_", "_an_", "_be_", "_by_", "_do_", "_go_", "_in_", "_is_", "_it_", "_my_", "_of_", 
 	"_on_", "_or_", "_to_", "_up_", "_and_", "_the_", "_have_", "_that_", "_this_", "_with_", "_you_", 
 	/* two-letter 1 */
@@ -86,21 +85,20 @@ char cw_word[220][50] = { /* single letter */
 	"_person_", "_place_", "_point_", "_problem_", "_public_", "_right_", "_small_", "_thing_", "_world_", "_woman_", 
 	"_young_", "_would_", 
 	/* NO-SPACE */
-	"and", "not", "the", "you", "any", "all", "but", "can", "day", "get", "his", 
-	"her", "how", "now", "new", "out", "one", "our", "use", "way", "who", "its", 
-	"end", "see", "she", "ask", "big", "bad", "eye", "man", "own", "old", "try", 
-	"for", "ear", 
-	"that", "this", "with", "come", "back", "just", "into", "know", "like", 
-	"make", "most", "them", "over", "some", "time", "take", "work", "will", 
+	"person", "different", "after", "other", "there", "group", "place", "point", "right", "thing", 
+	"hand", "high", "last", "long", "part", "tell", "tion", 
 	"then", "than", "well", "even", "able", "case", "call", "fact", "feel", 
-	"hand", "high", "last", "long", "part", "tell", 
-	"after", "other", "there", "group", "place", "point", "right", "thing", 
-	"person", "different"
+	"make", "most", "them", "over", "some", "time", "take", "work", "will", 
+	"that", "this", "with", "come", "back", "just", "into", "know", "like", 
+	"for", "ear", "ing", "end", "see", "she", "ask", "big", "bad", "eye", "man", 
+	"own", "old", "try", "her", "how", "now", "new", "out", "one", "our", "use", 
+	"way", "who", "its", "and", "not", "the", "you", "any", "all", "but", "can", 
+	"day", "get", "his"
 };
 /* GLOBAL VARIABLES */
 char ss_array_matrix[300][50][151], s_compress_storage[300][151], s_max_buffer[30000];
 char ss_refs[] ="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$<=>@[]^{|}~\0", nchar = '\n', tchar = '\t';
-int cw_idxs[220], chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_info = 0;
+int cw_idxs[222], chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_info = 0;
 
 int main(int argc, char *argv[]) {
 	if(argc < 4) {
@@ -271,7 +269,7 @@ void splice_str(char *s, char *sub, int splice_len, int size) {
 }
 int delta_sub_words(char *s, int total_len, char remove[][50], char insert[][50]) {
 	int count = 0, word_len, i, j;
-	for(i = 0; i < 220; i++) {
+	for(i = 0; i < 222; i++) {
 		char *p = s;
 		word_len = strlen(remove[i]);
 		while(*p != '\0') {
@@ -284,6 +282,8 @@ int delta_sub_words(char *s, int total_len, char remove[][50], char insert[][50]
 						count++;
 					}
 				}
+			} else if(*p == '`' || *p == '!' || *p == '?') { /* avoid chaining words: themself => !uself => !?slf */
+				p++;
 			}
 			p++;
 		}
