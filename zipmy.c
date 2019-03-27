@@ -21,6 +21,9 @@ void delta_txt_crypt(char *, char *);
 void splice_str(char *, char *, int, int);
 int delta_sub_words(char *, int, char [][50], char [][50]);
 void print_cw_used(int);
+/* SUB NUMBER OF SEQUENTIAL LETTERS & VISE-VERSA */
+void sequential_letters(char *);
+void sequential_numbers(char *);
 /* CHARACTER/COMPRESSION FUNCTIONS */
 void rm_nxt_ch(char *, int);
 void modify_s(char *, int);
@@ -34,8 +37,8 @@ char adjust_ref_char(char);
 /* SUBSTRING FUNCTIONS */
 void store_ss(char [][151], char *, int);
 int clean_ss(char [][151], char *, int);
-void splice_ss(char [][151], int [50], int, int);
-void trim_ss(char [][151], char *, int [50], int, int);
+void splice_ss(char [][151], int [45], int, int);
+void trim_ss(char [][151], char *, int [45], int, int);
 void print_ss(char [][151], int);
 /* COMMON WORD SUBSTITUTIONS */
 char cw_keys[222][50] = { /* single letter */
@@ -96,8 +99,8 @@ char cw_word[222][50] = { /* single letter */
 	"day", "get", "his"
 };
 /* GLOBAL VARIABLES */
-char ss_array_matrix[300][50][151], s_compress_storage[300][151], s_max_buffer[30000];
-char ss_refs[] ="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#$<=>@[]^{|}~\0", nchar = '\n', tchar = '\t';
+char ss_array_matrix[300][45][151], s_compress_storage[300][151], s_max_buffer[30000];
+char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ01789#$<=>@[]^{|}~\0", nchar = '\n', tchar = '\t';
 int cw_idxs[222], chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_info = 0;
 
 int main(int argc, char *argv[]) {
@@ -143,7 +146,7 @@ void err_info() {
 	printf("============================================================");
 	printf("\n=> FILE.TXT FORMAT: AVOID NUMBERS, NEWLINES, & UNDERSCORES!\n");
 	printf("============================================================");
-	printf("\n=> INFORMATION (DO W/ BOTH HIDE/SHOW): $ ... hide/show info\n");
+	printf("\n=> ENCRYPTION/COMPRESSION INFORMATION: $ ... hide/show info\n");
 	printf("============================================================\n\n");
 }
 /******************************************************************************
@@ -164,6 +167,7 @@ void show_txt_compressed(char *arg2, char *arg1) {
 		*p = '\0'; /* remove \n from s_buffer */
 		if(zip_info == 1) printf("\nENCRYPTED/COMPRESSED: %s\n", s_buffer);
 		delta_txt_crypt(s_buffer, arg2); /* decrypt text */
+		sequential_numbers(s_buffer);
 		s_decompress(ss_array_matrix[s_chunk_number], s_buffer);
 		delta_sub_words(s_buffer, 151, cw_keys, cw_word); /* remove keys, insert words */
 		modify_s(s_buffer, 2); /* '_' => ' ' */
@@ -188,7 +192,7 @@ void show_txt_compressed(char *arg2, char *arg1) {
 	return;
 }
 void read_txt_engl(char *arg2, char *arg1) {
-	char ss[50][151], s_chunk[151];
+	char ss[45][151], s_chunk[151];
 	int ret;
 	FILE *fp;
 	if((fp = fopen(arg1, "r")) == NULL) {
@@ -297,6 +301,34 @@ void print_cw_used(int sub_size) {
 	}
 }
 /******************************************************************************
+* SUB NUMBER OF SEQUENTIAL LETTERS & VISE-VERSA
+******************************************************************************/
+void sequential_letters(char *s) {
+	char *p = s, count_s[2];
+	int count;
+	while(*(p + 1) != '\0') {
+		if(*(p + 1) == (*p + 1) && *(p + 2) == (*p + 2)) {
+			for(count = 3; (count < 7 && *(p + count) == (*p + count)); count++);
+			sprintf(count_s, "%d", --count);
+			splice_str(p + 1, count_s, count, 151);
+		}
+		p++;
+	}
+}
+void sequential_numbers(char *s) {
+	char *p = s, num_s[2], ch_arr[8];
+	while(*p != '\0') {
+		if(*p >= '2' && *p <= '6') {
+			sprintf(num_s, "%c", *p);
+			int num = atoi(num_s), i;
+			for(i = 1; i <= num; i++) ch_arr[i - 1] = (*(p - 1) + i);
+			ch_arr[i - 1] = '\0';
+			splice_str(p, ch_arr, 1, 151);
+		}
+		p++;
+	}
+}
+/******************************************************************************
 * ENCRYPTION FUNCTION
 ******************************************************************************/
 void delta_txt_crypt(char *char_array, char *arg2) {
@@ -351,8 +383,7 @@ void modify_s(char *s, int sp_flag) {
 * DE/COMPRESSION FUNCTIONS
 ******************************************************************************/
 void s_decompress(char ss[][151], char *s) {
-	char *p = s;
-	char t[151];
+	char *p = s, t[151];
 	while(*p != '\0') {
 		if(is_ss_ref(0, *p) == 1) {
 			sprintf(t, "%s%s", ss[ss_ch_index(*p)], p+1);
@@ -397,6 +428,7 @@ int process_split_s(char ss[][151], char *s, char *s_compress_storage, char *arg
 	if(zip_info == 1) printf("\nORIGINALLY => LEN: %lu, STR: %s\n", strlen(s), s);
 	int ss_total = s_compress(ss, s);
 	if(zip_info == 1) printf("COMPRESSED => LEN: %lu, STR: %s\n", strlen(s), s);
+	sequential_letters(s);
 	int compressed_bytes = strlen(s); /* compressed string length */
 	write_bin_ss_keys(ss, ss_total, arg2); /* store ss keys in bin"password"file */
 	delta_txt_crypt(s, arg2); /* encrypt text */
@@ -419,24 +451,28 @@ int is_ss_ref(int start, char ch) {
 int ss_ch_index(char ch_c_idx) {
 	if(CH_IS_GCAP(ch_c_idx) == 1) {
 		return (int)(ch_c_idx - 65);
-	} else if(CH_IS_GNUM(ch_c_idx) == 1 || (ch_c_idx >= '<' && ch_c_idx <= '>')) {
+	} else if(ch_c_idx == '0' || ch_c_idx == '1') {
 		return (int)(ch_c_idx - 22);
+	} else if((ch_c_idx >= '7' && ch_c_idx <= '9') || (ch_c_idx >= '<' && ch_c_idx <= '>')) {
+		return (int)(ch_c_idx - 27);
 	} else if(ch_c_idx == '#' || ch_c_idx == '$') {
-		return (int)(ch_c_idx + 1);
+		return (int)(ch_c_idx - 4);
 	} else if(ch_c_idx == '@') {
-		return (int)(ch_c_idx - 23);
+		return (int)(ch_c_idx - 28);
 	} else if(ch_c_idx == '[') {
-		return (int)(ch_c_idx - 49);
+		return (int)(ch_c_idx - 54);
 	} else if(ch_c_idx == ']' || ch_c_idx == '^') {
 		return (int)(ch_c_idx - 50);
 	} else {
-		return (int)(ch_c_idx - 78);
+		return (int)(ch_c_idx - 83);
 	}
 
 }
 char adjust_ref_char(char ss_ref_ch) {
 	if(ss_ref_ch == '0') {
 		return (char)(ss_ref_ch + 42); /* become Z */
+	} else if(ss_ref_ch == '7') { /* become 1 */
+		return (char)(ss_ref_ch - 6);
 	} else if(ss_ref_ch == '#') { /* become 9 */
 		return (char)(ss_ref_ch + 22);
 	} else if(ss_ref_ch == '<') { /* become $ */
@@ -459,7 +495,7 @@ void store_ss(char ss[][151], char *p, int ss_idx) {
 }
 int clean_ss(char ss[][151], char *s, int ss_total) {
 	char *p;
-	int nest_idx = 0, nested_ss[50]; /* nested ss only ref'd by other ss, arr holds their idxs */
+	int nest_idx = 0, nested_ss[45]; /* nested ss only ref'd by other ss, arr holds their idxs */
 	for(int i = 0; i < ss_total; i++) {
 		p = s;
 		while(*p != '\0') {
@@ -475,7 +511,7 @@ int clean_ss(char ss[][151], char *s, int ss_total) {
 	trim_ss(ss, s, nested_ss, nest_idx, ss_total); /* adjust ss & s references as per rmvd nested ss */
 	return (ss_total - nest_idx); /* actual ss total = original ss total - nested ss total */
 }
-void splice_ss(char ss[][151], int nested_ss[50], int nest_total, int ss_total) {
+void splice_ss(char ss[][151], int nested_ss[45], int nest_total, int ss_total) {
 	for(int i = 0; i < nest_total; i++) { /* traverse nested ss array */
 		for(int j = 0; j < ss_total; j++) { /* traverse ss array */
 			int curr_ss_len = strlen(ss[j]);
@@ -491,7 +527,7 @@ void splice_ss(char ss[][151], int nested_ss[50], int nest_total, int ss_total) 
 		}
 	}
 }
-void trim_ss(char ss[][151], char *s, int nested_ss[50], int nest_total, int ss_total) {
+void trim_ss(char ss[][151], char *s, int nested_ss[45], int nest_total, int ss_total) {
 	int i, j;
 	for(i = 0; i < nest_total; i++) { /* delete nested-ss */
 		char *p = s;
