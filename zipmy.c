@@ -316,11 +316,10 @@ void sequential_letters(char *s) {
 	}
 }
 void sequential_numbers(char *s) {
-	char *p = s, num_s[2], ch_arr[8];
+	char *p = s, ch_arr[8];
 	while(*p != '\0') {
 		if(*p >= '2' && *p <= '6') {
-			sprintf(num_s, "%c", *p);
-			int num = atoi(num_s), i;
+			int num = (int)(*p - 48), i;
 			for(i = 1; i <= num; i++) ch_arr[i - 1] = (*(p - 1) + i);
 			ch_arr[i - 1] = '\0';
 			splice_str(p, ch_arr, 1, 151);
