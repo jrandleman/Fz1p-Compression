@@ -402,8 +402,8 @@ int s_compress(char ss[][151], char *s) { /* returns # of substrings */
 	}
 	int ss_idx = 0, found;
 	char *p = s, *r;
-	while(*(p + 1) != '\0') { /* first ss instance */
-		r = p + 1;
+	while(*(p + 2) != '\0') { /* first ss instance */
+		r = p + 2;
 		found = 0;
 		while(*(r + 1) != '\0') { /* second ss instance */
 			if(*r == *p && *(r + 1) == *(p + 1)) {
