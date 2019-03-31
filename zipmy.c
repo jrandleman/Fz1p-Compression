@@ -272,18 +272,20 @@ void splice_str(char *s, char *sub, int splice_len, int size) {
 	strcpy(s, temp);
 }
 int delta_sub_words(char *s, int total_len, char remove[][50], char insert[][50]) {
-	int count = 0, word_len, i, j;
+	int count = 0, found, word_len, i, j;
 	for(i = 0; i < 222; i++) {
 		char *p = s;
 		word_len = strlen(remove[i]);
+		found = 0;
 		while(*p != '\0') {
 			if(*p == remove[i][0]) {
 				for(j = 0; j < word_len; j++) if(*(p + j) != remove[i][j]) break;
 				if(j == word_len) { /* if word in s is common word */
 					splice_str(p, insert[i], word_len, total_len);
-					if(zip_info == 1) { /* store common words for 'info' command */
+					if(zip_info == 1 && found == 0) { /* store common words for 'info' command */
 						cw_idxs[count] = i;
 						count++;
+						found++;
 					}
 				}
 			} else if(*p == '`' || *p == '!' || *p == '?') { /* avoid chaining words: themself => !uself => !?slf */
@@ -368,12 +370,22 @@ void modify_s(char *s, int sp_flag) {
 				*p = '(';
 			} else if(*p == ']' || *p == '}'){
 				*p = ')';
+			} else if(*p == 'q' && *(p + 1) == 'u'){
+				*p = 'k';
+				*(p + 1) = 'w';
+				p++;
 			}
 			p++;
 		}
 	} else { /* spaces for underscores (decrypt) */
 		while(*p != '\0') {
-			if(*p == under_s) *p = space;
+			if(*p == under_s) {
+				*p = space;
+			} else if(*p == 'k' && *(p + 1) == 'w'){
+				*p = 'q';
+				*(p + 1) = 'u';
+				p++;
+			}
 			p++;
 		}
 	}
