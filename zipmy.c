@@ -253,7 +253,6 @@ void read_pass_ss_keys(char *arg2) {
 void write_pass_ss_keys(char ss[][151], int ss_total, char *arg2) {
 	char filename[strlen(arg2) + 4];
 	convert_password_to_txt(filename, arg2);
-	printf("filename: %s\n", filename);
 	FILE *fp;
 	(chunk_count == 0) ? (fp = fopen(filename, "w")) : (fp = fopen(filename, "a"));
 	if(fp == NULL) {
