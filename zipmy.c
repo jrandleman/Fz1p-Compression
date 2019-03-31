@@ -7,15 +7,16 @@
 #define CH_IS_GCAP(ch_c_inst) ((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z')
 /* 'HIDE' FILE FUNCTIONS */
 void hide(char *, char *);
-void write_bin_ss_keys(char [][151], int, char *);
+void write_pass_ss_keys(char [][151], int, char *);
 void read_txt_engl(char *, char *);
 void write_txt_compressed(char *);
 /* 'SHOW' FILE FUNCTIONS */
 void show(char *, char *);
-void read_bin_ss_keys(char *);
+void read_pass_ss_keys(char *);
 void show_txt_compressed(char *, char *);
-/* BOTH => ERROR/ENCRYPTION FUNCTIONS */
+/* BOTH => ERROR/ENCRYPTION/PASSWORD CONVERT FUNCTIONS */
 void err_info();
+void convert_password_to_txt(char *, char *);
 void delta_txt_crypt(char *, char *);
 /* COMMON WORD SUBSTITUTION FUNCTIONS */
 void splice_str(char *, char *, int, int);
@@ -100,7 +101,7 @@ char cw_word[222][50] = { /* single letter */
 };
 /* GLOBAL VARIABLES */
 char ss_array_matrix[300][45][151], s_compress_storage[300][151], s_max_buffer[30000];
-char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ01789#$<=>@[]^{|}~\0", nchar = '\n', tchar = '\t';
+char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ01789#$<=>@[]^{|}~\0", nchar = '\n';
 int cw_idxs[222], chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_info = 0;
 
 int main(int argc, char *argv[]) {
@@ -136,7 +137,7 @@ void hide(char *arg2, char *arg1) {
 	printf(">> BYTES => UNCOMPRESSED: %d, COMPRESSED: %d, COMPRESSION RATE: %.2f%%\n\n", original_bytes, compressed_bytes, bytes_saved);
 }
 void show(char *arg2, char *arg1) {
-	read_bin_ss_keys(arg2);
+	read_pass_ss_keys(arg2);
 	show_txt_compressed(arg2, arg1);
 	printf("\n>> %s => DECOMPRESSED AND DECRYPTED!\n\n", arg1);
 }
@@ -224,20 +225,21 @@ void write_txt_compressed(char *arg1) {
 /******************************************************************************
 * BINARY FILE FUNCTIONS
 ******************************************************************************/
-void read_bin_ss_keys(char *arg2) {
-	char ss_buffer[50];
+void read_pass_ss_keys(char *arg2) {
+	char ss_buffer[100], ch_buffer, filename[strlen(arg2) + 4];
+	convert_password_to_txt(filename, arg2);
 	int n = 0, m = 0; /* m - 2D ss array (sentence), n - ss (word) => WRT ss_array_matrix[m][n][] */
 	FILE *fp;
-	if((fp = fopen(arg2, "rb")) == NULL) {
+	if((fp = fopen(filename, "r")) == NULL) {
 		printf("\n(!!!) ERR PROCESSING PASSWORD (!!!)\n\n");
 		fclose(fp);
 		exit(0);
 	}
-	while(fread(ss_buffer, sizeof(char), 50, fp) == 50) {
+	while(fscanf(fp, "%s%c", ss_buffer, &ch_buffer) > 0) {
 		char *p = ss_buffer, *q = ss_array_matrix[m][n];
 		while(*p != '\0') *q++ = *p++; /* copy ss from bin to 2d ss array in 3d matrix */
 		*q = '\0';  /* terminate ss */
-		if(ss_buffer[49] == '\n') {
+		if(ch_buffer == '\n') {
 			ss_array_matrix[m][n+1][0] = '\0'; /* terminate ss 2d array */
 			m++; /* move to next 2d ss array (1 per s_chunk) in 3d matrix */
 			n = 0; /* start from row (ss) 0 */
@@ -246,22 +248,30 @@ void read_bin_ss_keys(char *arg2) {
 		}
 	}
 	fclose(fp);
-	remove(arg2); /* delete password binary file once ss keys retrieved */
+	remove(filename); /* delete password txt file once ss keys retrieved */
 }
-void write_bin_ss_keys(char ss[][151], int ss_total, char *arg2) {
+void write_pass_ss_keys(char ss[][151], int ss_total, char *arg2) {
+	char filename[strlen(arg2) + 4];
+	convert_password_to_txt(filename, arg2);
+	printf("filename: %s\n", filename);
 	FILE *fp;
-	(chunk_count == 0) ? (fp = fopen(arg2, "wb")) : (fp = fopen(arg2, "ab"));
+	(chunk_count == 0) ? (fp = fopen(filename, "w")) : (fp = fopen(filename, "a"));
 	if(fp == NULL) {
 		printf("(!!!) ERR LINKING PASSWORD TO TEXT (!!!)\n");
 		fclose(fp);
 		return;
 	}
 	for(int i = 0; i < ss_total; i++) {
-		fwrite(ss[i], sizeof(char), 49, fp);
-		if(i < ss_total - 1) fwrite(&tchar, sizeof(char), 1, fp);
+		fprintf(fp, "%s", ss[i]);
+		if(i < ss_total - 1) fprintf(fp, "%c", '\t');
 	}
-	fwrite(&nchar, sizeof(char), 1, fp);
+	fprintf(fp, "%c", '\n');
 	fclose(fp);
+}
+void convert_password_to_txt(char *tfile, char *pass) {
+	char *ptr = tfile, *qtr = pass; /* convert password into text file name */
+	while(*qtr != '\0') *ptr++ = *qtr++;
+	strcpy(ptr, ".txt");
 }
 /******************************************************************************
 * COMMON WORD SUBSTITUTION FUNCTIONS
@@ -441,7 +451,7 @@ int process_split_s(char ss[][151], char *s, char *s_compress_storage, char *arg
 	if(zip_info == 1) printf("COMPRESSED => LEN: %lu, STR: %s\n", strlen(s), s);
 	sequential_letters(s);
 	int compressed_bytes = strlen(s); /* compressed string length */
-	write_bin_ss_keys(ss, ss_total, arg2); /* store ss keys in bin"password"file */
+	write_pass_ss_keys(ss, ss_total, arg2); /* store ss keys in bin"password"file */
 	delta_txt_crypt(s, arg2); /* encrypt text */
 	strcpy(s_compress_storage, s); /* store compressed string */
 	if(zip_info == 1) printf("ENCRYPTION => LEN: %lu, STR: %s\n", strlen(s), s);
