@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
-#define CH_IS_GNUM(ch_n_inst) ((ch_n_inst) >= '0' && (ch_n_inst) <= '9')
 #define CH_IS_GCAP(ch_c_inst) ((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z')
 /* 'HIDE' FILE FUNCTIONS */
 void hide(char *, char *);
