@@ -161,7 +161,6 @@ void show_txt_compressed(char *arg1) {
 	FILE *fp;
 	if((fp = fopen(arg1, "w")) == NULL) { /* PUT DECOMPRESSED TEXT */
 		printf("(!!!) ERR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
-		fclose(fp);
 		return;
 	}
 	fwrite(s_max_buffer, sizeof(char), strlen(s_max_buffer), fp);
@@ -174,7 +173,6 @@ void read_txt_engl(char *arg2, char *arg1) {
 	FILE *fp;
 	if((fp = fopen(arg1, "r")) == NULL) {
 		printf("\n(!!!) ERR READING TEXT FILE (!!!)\n\n");
-		fclose(fp);
 		exit(0);
 	}
 	while((ret = fread(s_chunk, sizeof(char), 150, fp)) > 0) {
@@ -208,7 +206,6 @@ void read_pass_ss_keys(char *arg2) {
 	FILE *fp;
 	if((fp = fopen(filename, "r")) == NULL) {
 		printf("\n(!!!) ERR PROCESSING PASSWORD (!!!)\n\n");
-		fclose(fp);
 		exit(0);
 	}
 	while(fscanf(fp, "%s%c", ss_buffer, &ch_buffer) > 0) {
@@ -233,7 +230,6 @@ void write_pass_ss_keys(char ss[][152], int ss_total, char *arg2) {
 	(chunk_count == 0) ? (fp = fopen(filename, "w")) : (fp = fopen(filename, "a"));
 	if(fp == NULL) {
 		printf("(!!!) ERR LINKING PASSWORD TO TEXT (!!!)\n");
-		fclose(fp);
 		return;
 	}
 	for(int i = 0; i < ss_total; i++) {
@@ -519,7 +515,6 @@ void hide_int(char *arg1, char *s) {
 	FILE *fp;
 	if((fp = fopen(filename, "wb")) == NULL) {
 		printf("ERR WRITING INT BIN FILE\n");
-		fclose(fp);
 		return;
 	}
 	fwrite(write_arr, sizeof(unsigned int), i, fp);
@@ -543,7 +538,6 @@ void show_int(char *arg1) {
 	FILE *fp;
 	if((fp = fopen(filename, "rb")) == NULL) { /* read int binary file */
 		printf("ERR READING BIN NUM FILE\n");
-		fclose(fp);
 		return;
 	}
 	while ((ret = fread(temp_num_store, sizeof(unsigned int), 150, fp)) == 150) {
