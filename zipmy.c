@@ -159,7 +159,6 @@ void show_txt_compressed(char *arg2, char *arg1) {
 	int s_chunk_number = 0;
 	if((fp = fopen(arg1, "r")) == NULL) {
 		printf("(!!!) ERR READING COMPRESSED TEXT FILE (!!!)\n");
-		fclose(fp);
 		return;
 	}
 	while(fgets(s_buffer, 150, fp) > 0) { /* GET COMPRESSED TEXT */
@@ -185,7 +184,6 @@ void show_txt_compressed(char *arg2, char *arg1) {
 
 	if((fp = fopen(arg1, "w")) == NULL) { /* PUT DECOMPRESSED TEXT */
 		printf("(!!!) ERR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
-		fclose(fp);
 		return;
 	}
 	fwrite(s_max_buffer, sizeof(char), strlen(s_max_buffer), fp);
@@ -198,7 +196,6 @@ void read_txt_engl(char *arg2, char *arg1) {
 	FILE *fp;
 	if((fp = fopen(arg1, "r")) == NULL) {
 		printf("\n(!!!) ERR READING TEXT FILE (!!!)\n\n");
-		fclose(fp);
 		exit(0);
 	}
 	while((ret = fread(s_chunk, sizeof(char), 150, fp)) > 0) {
@@ -213,7 +210,6 @@ void write_txt_compressed(char *arg1) {
 	FILE *fp;
 	if((fp = fopen(arg1, "w")) == NULL) {
 		printf("(!!!) ERR WRITING COMPRESSED TEXT TO FILE (!!!)\n");
-		fclose(fp);
 		return;
 	}
 	for(int i = 0; i < chunk_count; i++) {
@@ -232,7 +228,6 @@ void read_pass_ss_keys(char *arg2) {
 	FILE *fp;
 	if((fp = fopen(filename, "r")) == NULL) {
 		printf("\n(!!!) ERR PROCESSING PASSWORD (!!!)\n\n");
-		fclose(fp);
 		exit(0);
 	}
 	while(fscanf(fp, "%s%c", ss_buffer, &ch_buffer) > 0) {
@@ -257,7 +252,6 @@ void write_pass_ss_keys(char ss[][151], int ss_total, char *arg2) {
 	(chunk_count == 0) ? (fp = fopen(filename, "w")) : (fp = fopen(filename, "a"));
 	if(fp == NULL) {
 		printf("(!!!) ERR LINKING PASSWORD TO TEXT (!!!)\n");
-		fclose(fp);
 		return;
 	}
 	for(int i = 0; i < ss_total; i++) {
