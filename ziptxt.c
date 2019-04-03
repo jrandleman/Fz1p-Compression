@@ -142,7 +142,7 @@ void show(char *arg2, char *arg1) {
 }
 void err_info() {
 	printf("\n==================== INVALID EXECUTION! ====================\n");
-	printf("$ gcc -o zipmy zipmy.c\n$ ./zipmy textfile.txt yourpassword hide/show\n");
+	printf("$ gcc -o ziptxt ziptxt.c\n$ ./ziptxt textfile.txt yourpassword hide/show\n");
 	printf("============================================================");
 	printf("\n=> FILE.TXT FORMAT: AVOID NUMBERS, NEWLINES, & UNDERSCORES!\n");
 	printf("============================================================");
