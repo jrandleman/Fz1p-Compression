@@ -1,11 +1,11 @@
 # Zip_Text
 _Lossless Compression &amp; Encryption For Text Files!_
 ---------------------------------------
-**_zipmy compression => txt <--> txt, with encryption: locally in textfile_**</br>
-**_zipint compression => txt <--> bin, more compression: 5 letters/4 bytes via bitwise (same cmd syntax)_**
+**_ziptxt compression => txt <--> txt, with encryption: locally in textfile_**</br>
+**_fzip compression => txt <--> bin, more compression: 5 letters/4 bytes via bit packing (same cmd syntax)_**
 
-$ gcc -o zipmy zipmy.c</br>
-$ ./zipmy textfilename.txt yourpassword (hide/show) (info)
+$ gcc -o fzip fzip.c</br>
+$ ./fzip textfilename.txt yourpassword (hide/show) (info)
 
 * Enter \<hide> to compress and encrypt your text file
 * Enter \<show> to decrypt and decompress text file
