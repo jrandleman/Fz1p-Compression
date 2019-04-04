@@ -157,7 +157,7 @@ void show_txt_compressed(char *arg2, char *arg1) {
 	char s_buffer[150];
 	int s_chunk_number = 0;
 	if((fp = fopen(arg1, "r")) == NULL) {
-		printf("(!!!) ERR READING COMPRESSED TEXT FILE (!!!)\n");
+		printf("\n\n(!!!) ERR READING COMPRESSED TEXT FILE (!!!)\n");
 		return;
 	}
 	while(fgets(s_buffer, 150, fp) > 0) { /* GET COMPRESSED TEXT */
@@ -182,7 +182,7 @@ void show_txt_compressed(char *arg2, char *arg1) {
 	fclose(fp);
 
 	if((fp = fopen(arg1, "w")) == NULL) { /* PUT DECOMPRESSED TEXT */
-		printf("(!!!) ERR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
+		printf("\n\n(!!!) ERR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
 		return;
 	}
 	fwrite(s_max_buffer, sizeof(char), strlen(s_max_buffer), fp);
@@ -194,7 +194,7 @@ void read_txt_engl(char *arg2, char *arg1) {
 	int ret;
 	FILE *fp;
 	if((fp = fopen(arg1, "r")) == NULL) {
-		printf("\n(!!!) ERR READING TEXT FILE (!!!)\n\n");
+		printf("\n\n(!!!) ERR READING TEXT FILE (!!!)\n\n");
 		exit(0);
 	}
 	while((ret = fread(s_chunk, sizeof(char), 150, fp)) > 0) {
@@ -208,7 +208,7 @@ void read_txt_engl(char *arg2, char *arg1) {
 void write_txt_compressed(char *arg1) {
 	FILE *fp;
 	if((fp = fopen(arg1, "w")) == NULL) {
-		printf("(!!!) ERR WRITING COMPRESSED TEXT TO FILE (!!!)\n");
+		printf("\n\n(!!!) ERR WRITING COMPRESSED TEXT TO FILE (!!!)\n");
 		return;
 	}
 	for(int i = 0; i < chunk_count; i++) {
@@ -226,7 +226,7 @@ void read_pass_ss_keys(char *arg2) {
 	int n = 0, m = 0; /* m - 2D ss array (sentence), n - ss (word) => WRT ss_array_matrix[m][n][] */
 	FILE *fp;
 	if((fp = fopen(filename, "r")) == NULL) {
-		printf("\n(!!!) ERR PROCESSING PASSWORD (!!!)\n\n");
+		printf("\n\n(!!!) ERR PROCESSING PASSWORD (!!!)\n\n");
 		exit(0);
 	}
 	while(fscanf(fp, "%s%c", ss_buffer, &ch_buffer) > 0) {
@@ -250,7 +250,7 @@ void write_pass_ss_keys(char ss[][151], int ss_total, char *arg2) {
 	FILE *fp;
 	(chunk_count == 0) ? (fp = fopen(filename, "w")) : (fp = fopen(filename, "a"));
 	if(fp == NULL) {
-		printf("(!!!) ERR LINKING PASSWORD TO TEXT (!!!)\n");
+		printf("\n\n(!!!) ERR LINKING PASSWORD TO TEXT (!!!)\n");
 		return;
 	}
 	for(int i = 0; i < ss_total; i++) {
@@ -263,7 +263,7 @@ void write_pass_ss_keys(char ss[][151], int ss_total, char *arg2) {
 void convert_password_to_txt(char *tfile, char *pass) {
 	char *ptr = tfile, *qtr = pass; /* convert password into text file name */
 	while(*qtr != '\0') *ptr++ = *qtr++;
-	strcpy(ptr, ".txt");
+	strcpy(ptr, "_sskey.txt");
 }
 /******************************************************************************
 * COMMON WORD SUBSTITUTION FUNCTIONS
