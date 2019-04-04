@@ -65,7 +65,7 @@ int get_shift_number(int);
 void pack(int[], int, char[], int);
 void unpack(int *, int, char);
 void packer(int, int, int[], char[]);
-void unpacker(int, int, int[], char[]);
+void unpacker(int, int, int[], char[]); 
 /* COMMON WORD SUBSTITUTIONS */
 char cw_keys[222][50] = { /* single letter */
 	"_b_", "_d_", "_e_", "_f_", "_g_", "_h_", "_j_", "_k_", "_l_", "_m_", "_n_", "_o_", 
@@ -118,7 +118,7 @@ char cw_word[222][50] = { /* single letter */
 	"hand", "high", "last", "long", "part", "tell", "tion", 
 	"then", "than", "well", "even", "able", "case", "call", "fact", "feel", 
 	"make", "most", "them", "over", "some", "time", "take", "work", "will", 
-	"that", "this", "with", "come", "back", "just", "into", "know", "like", 
+	"that", "this", "with", "come", "back", "ent", "into", "know", "nter", 
 	"for", "ear", "ing", "end", "see", "she", "ask", "big", "bad", "eye", "man", 
 	"own", "old", "try", "her", "how", "now", "new", "out", "one", "our", "use", 
 	"way", "who", "its", "and", "not", "the", "you", "any", "all", "but", "can", 
@@ -127,7 +127,7 @@ char cw_word[222][50] = { /* single letter */
 /* GLOBAL VARIABLES */
 char ss_array_matrix[300][40][152], s_compress_storage[300][152], s_max_buffer[30000];
 char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#$<=>@[]^{|}~\0";
-int cw_idxs[222], chunk_count = 0, original_bytes = 0, zip_info = 0; // NO NEED COMPR_BYTES
+int cw_idxs[224], chunk_count = 0, original_bytes = 0, zip_info = 0; // NO NEED COMPR_BYTES
 
 int main(int argc, char *argv[]) {
 	if(argc < 4) {
@@ -157,7 +157,7 @@ void hide(char *arg2, char *arg1) {
 	read_txt_engl(arg2, arg1); /* process text file in 150 char chunks */
 	write_int_compressed(arg2, arg1); /* write compressed string to text file */
 	int choice;
-	printf("DELETE ORIGINAL TEXT FILE? (enter 1 - yes, 0 - no):\n>>> ");
+	printf("DELETE ORIGINAL TEXT FILE? (enter 1 - yes, 0 - no):\n\n>>> ");
 	scanf("%d", &choice);
 	if(choice != 1 && choice != 0) {
 		printf("\n -:- INVALID OPTION -:- FILE NOT DELTED -:- \n");
@@ -168,10 +168,12 @@ void hide(char *arg2, char *arg1) {
 	printf("\n");
 }
 void show(char *arg2, char *arg1) {
+	char filename[75];
+	convert_txt_to_bin(filename, arg1);
 	read_pass_ss_keys(arg2);
 	show_txt_compressed(arg2, arg1);
 	printf("\n==============================================================================");
-	printf("\n>> %s => DECOMPRESSED!\n", arg1);
+	printf("\n>> %s ==DECOMPRESS=> %s\n", filename, arg1);
 	printf("==============================================================================\n\n");
 }
 void err_info() {
@@ -306,7 +308,7 @@ void splice_str(char *s, char *sub, int splice_len, int size) {
 }
 int delta_sub_words(char *s, int total_len, char remove[][50], char insert[][50]) {
 	int count = 0, found, word_len, i, j;
-	for(i = 0; i < 222; i++) {
+	for(i = 0; i < 224; i++) {
 		char *p = s;
 		word_len = strlen(remove[i]);
 		found = 0;
