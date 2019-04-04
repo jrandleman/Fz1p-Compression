@@ -20,6 +20,7 @@ void show_txt_compressed(char *, char *);
 void err_info();
 void convert_password_to_txt(char *, char *);
 void convert_txt_to_bin(char *, char *);
+void convert_pass_to_bin(char *, char *);
 /* COMMON WORD SUBSTITUTION FUNCTIONS */
 void splice_str(char *, char *, int, int);
 int delta_sub_words(char *, int, char [][50], char [][50]);
@@ -169,9 +170,9 @@ void hide(char *arg2, char *arg1) {
 void show(char *arg2, char *arg1) {
 	read_pass_ss_keys(arg2);
 	show_txt_compressed(arg2, arg1);
-	printf("\n===============================================");
-	printf("\n>> %s => DECOMPRESSED AND DECRYPTED!\n", arg1);
-	printf("===============================================\n\n");
+	printf("\n==============================================================================");
+	printf("\n>> %s => DECOMPRESSED!\n", arg1);
+	printf("==============================================================================\n\n");
 }
 void err_info() {
 	printf("\n==================== INVALID EXECUTION! ====================\n");
@@ -189,7 +190,7 @@ void show_txt_compressed(char *arg2, char *arg1) {
 	show_int(arg2, arg1);
 	FILE *fp;
 	if((fp = fopen(arg1, "w")) == NULL) { /* PUT DECOMPRESSED TEXT */
-		printf("(!!!) ERROR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
+		printf("\n\n(!!!) ERROR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
 		return;
 	}
 	fwrite(s_max_buffer, sizeof(char), strlen(s_max_buffer), fp);
@@ -201,7 +202,7 @@ void read_txt_engl(char *arg2, char *arg1) {
 	int ret;
 	FILE *fp;
 	if((fp = fopen(arg1, "r")) == NULL) {
-		printf("\n(!!!) ERROR READING UNCOMPRESSED TEXT FILE (!!!)\n\n");
+		printf("\n\n(!!!) ERROR READING UNCOMPRESSED TEXT FILE (!!!)\n\n");
 		exit(0);
 	}
 	while((ret = fread(s_chunk, sizeof(char), 150, fp)) > 0) {
@@ -229,12 +230,12 @@ void write_int_compressed(char *arg2, char *arg1) {
 	hide_int(arg2, arg1, s_max); /* compress to integers */
 }
 void read_pass_ss_keys(char *arg2) {
-	char ss_buffer[100], ch_buffer, filename[strlen(arg2) + 4];
+	char ss_buffer[100], ch_buffer, filename[75];
 	convert_password_to_txt(filename, arg2);
 	int n = 0, m = 0; /* m - 2D ss array (sentence), n - ss (word) => WRT ss_array_matrix[m][n][] */
 	FILE *fp;
 	if((fp = fopen(filename, "r")) == NULL) {
-		printf("\n(!!!) ERROR READING PASSWORD BIN FILE (!!!)\n\n");
+		printf("\n\n(!!!) ERROR READING PASSWORD BIN FILE (!!!)\n\n");
 		exit(0);
 	}
 	while(fscanf(fp, "%s%c", ss_buffer, &ch_buffer) > 0) {
@@ -253,12 +254,12 @@ void read_pass_ss_keys(char *arg2) {
 	remove(filename); /* delete password txt file once ss keys retrieved */
 }
 void write_pass_ss_keys(char ss[][152], int ss_total, char *arg2) {
-	char filename[strlen(arg2) + 4];
+	char filename[75];
 	convert_password_to_txt(filename, arg2);
 	FILE *fp;
 	(chunk_count == 0) ? (fp = fopen(filename, "w")) : (fp = fopen(filename, "a"));
 	if(fp == NULL) {
-		printf("(!!!) ERROR WRITING PASSWORD BIN FILE (!!!)\n");
+		printf("\n\n(!!!) ERROR WRITING PASSWORD BIN FILE (!!!)\n");
 		return;
 	}
 	for(int i = 0; i < ss_total; i++) {
@@ -271,13 +272,29 @@ void write_pass_ss_keys(char ss[][152], int ss_total, char *arg2) {
 void convert_password_to_txt(char *tfile, char *pass) {
 	char *ptr = tfile, *qtr = pass; /* convert password into text file name */
 	while(*qtr != '\0') *ptr++ = *qtr++;
-	strcpy(ptr, ".txt");
+	strcpy(ptr, "_sskey.txt");
 }
 void convert_txt_to_bin(char *filename, char *arg1) {
 	strcpy(filename, arg1);
-	filename[strlen(filename) - 3] = 'b';
-	filename[strlen(filename) - 2] = 'i';
-	filename[strlen(filename) - 1] = 'n';
+	int len = strlen(filename);
+	filename[len - 4] = '_';
+	filename[len - 3] = 'c';
+	filename[len - 2] = 'o';
+	filename[len - 1] = 'm';
+	filename[len] = 'p';
+	filename[len + 1] = 'r';
+	filename[len + 2] = 'e';
+	filename[len + 3] = 's';
+	filename[len + 4] = 's';
+	filename[len + 5] = '.';
+	filename[len + 6] = 'b';
+	filename[len + 7] = 'i';
+	filename[len + 8] = 'n';
+	filename[len + 9] = '\0';
+}
+void convert_pass_to_bin(char *passfile, char *arg2) {
+	strcpy(&arg2[strlen(arg2)], "_shortkey.bin");
+	strcpy(passfile, arg2);
 }
 /******************************************************************************
 * COMMON WORD SUBSTITUTION FUNCTIONS
@@ -341,7 +358,7 @@ void modify_s(char *s, int sp_flag) {
 				*p = '-';
 			} else if(*p == '"'){
 				*p = '\'';
-			} else if(*p == 'q' && *(p + 1) == 'u'){
+			} else if(*p == 'q' && *(p + 1) == 'u') {
 				*p = 'k';
 				*(p + 1) = 'w';
 				p++;
@@ -352,7 +369,7 @@ void modify_s(char *s, int sp_flag) {
 		while(*p != '\0') {
 			if(*p == under_s) {
 				*p = space;
-			} else if(*p == 'k' && *(p + 1) == 'w'){
+			} else if(*p == 'k' && *(p + 1) == 'w') {
 				*p = 'q';
 				*(p + 1) = 'u';
 				p++;
@@ -531,7 +548,8 @@ void hide_int(char *arg2, char *arg1, char *s) {
 	int newl_total = count_newl(s), end_index, i, j, s_size = strlen(s);
 	int data_chunks = (newl_total + 1 + ((s_size - 1)/5));
 	unsigned int num_store[data_chunks]; /* holds n's */
-	char filename[50], *q = s; /* current place in str */
+	char filename[75], passfile[75], *q = s; /* current place in str */
+	convert_pass_to_bin(passfile, arg2); /* convert password to bin file */
 
 	for(i = 0; *q != '\0'; i++) { /* convert letters to ints */
 		char *p = q, s_temp[s_size];
@@ -563,7 +581,7 @@ void hide_int(char *arg2, char *arg1, char *s) {
 	packer(BUFF_BIT_SIZE, NUMBER_OF_BIT_PACKETS, short_order, packed);
 	FILE *fp;
 	if((fp = fopen(arg2, "wb")) == NULL) {
-		printf("ERROR WRITING SHORT COMPR INFORMATION\n");
+		printf("\n\n(!!!) ERROR WRITING SHORT COMPR INFORMATION(!!!)\n");
 		return;
 	}
 	fwrite(&order_length, sizeof(int), 1, fp); /* length of string */
@@ -575,7 +593,7 @@ void hide_int(char *arg2, char *arg1, char *s) {
 	convert_txt_to_bin(filename, arg1); /* write compressed file to binary file with name of original .txt */
 	FILE *ft;
 	if((ft = fopen(filename, "wb")) == NULL) {
-		printf("ERROR WRITING COMPRESSED SHORTS\n");
+		printf("\n\n(!!!) ERROR WRITING COMPRESSED SHORTS(!!!)\n");
 		return;
 	}
 	int byte_count = 0;
@@ -593,23 +611,24 @@ void hide_int(char *arg2, char *arg1, char *s) {
 	fclose(ft);
 
 	float bytes_saved = 100*(1.000000 - ((float)byte_count/(float)original_bytes)); /* print compr stats */
-	printf("\n===========================================================================");
+	printf("\n==============================================================================");
 	printf("\n%s ==COMPRESS=> %s\n", arg1, filename);
 	printf(">> BYTES => UNCOMPRESSED: %d, COMPRESSED: %d, COMPRESSION RATE: %.2f%%\n", original_bytes, byte_count, bytes_saved);
-	printf("===========================================================================\n\n");
+	printf("==============================================================================\n\n");
 }
 /******************************************************************************
 * SHOW INT
 ******************************************************************************/
 void show_int(char *arg2, char *arg1) {
 	int i, j, k, last_newl = 0, current_idx = 0, end_idx, copy_count = 0;
-	char newl_buffer[3000], s_store[30000], store_temp[5], filename[50]; /* newl_buffer = \n split_str, s_store holds char from ints */
+	char newl_buffer[3000], s_store[30000], store_temp[5], filename[75], passfile[75]; /* newl_buffer = \n split_str, s_store holds char from ints */
 	convert_txt_to_bin(filename, arg1); /* original .txt filename to binary file */
+	convert_pass_to_bin(passfile, arg2); /* convert password to bin file */
 	/*********************************** UNPACK ***********************************/
 	int order_array_len, total_short_dubs;
 	FILE *fp;
 	if((fp = fopen(arg2, "rb")) == NULL) {
-		printf("ERROR READING SHORT COMPR INFORMATION\n");
+		printf("\n\n(!!!) ERROR READING SHORT COMPR INFORMATION (!!!)\n");
 		return;
 	}
 	fread(&order_array_len, sizeof(int), 1, fp); /* get unpacked order array length */
@@ -628,7 +647,7 @@ void show_int(char *arg2, char *arg1) {
 
 	FILE *ft;
 	if((ft = fopen(filename, "rb")) == NULL) {
-		printf("ERROR READING COMPRESSED SHORTS\n");
+		printf("\n\n(!!!) ERROR READING COMPRESSED SHORTS (!!!)\n");
 		return;
 	}
 	unsigned short short_store[order_array_len];
