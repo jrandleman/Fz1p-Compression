@@ -66,11 +66,11 @@ void process_split_int(char *);
 /* DUPLICATE SHORT HANDLERS FUNCITONS */
 int count_double_shorts(unsigned short[], unsigned short[], int);
 int short_num_copies(unsigned short, unsigned short[], int);
-/* CONVERTING 2 SHORTS TO 1 INT AND VISE-VERSA  */
+/* CONVERTING 2 SHORTS TO 1 INT & VISE-VERSA  */
 unsigned int shorts_to_int(unsigned short, unsigned short);
 void int_to_shorts(unsigned int, unsigned short *, unsigned short *);
 int get_short_char_order(int[], unsigned short[], unsigned short[], int, int);
-/* PACKING AND UNPACKING BITS INTO INTO SHORTS FUNCTIONS */
+/* PACKING & UNPACKING BITS INTO INTO SHORTS FUNCTIONS */
 void fill_temp_with_buffer(int[], int, int[], int);
 int get_shift_number(int);
 void pack(int[], int, char[], int);
@@ -88,10 +88,10 @@ void ss_compress(int);
 int in_ss_copies(char *, int, char [][152]);
 int same_ss_str(int, int, int);
 void find_missing_ch_from_ss_max(char *);
-/* given letters not present, alter alphabet array to splice in numbers for vacant ss letters for int/str bit-packing */
+/* GIVEN LETTERS NOT PRESENT, ALTER ALPHABET ARRAY TO SPLICE IN #S FOR VACANT SS LETTERS FOR INT/STR BIT-PACKING */
 void alter_alphabet_arr(char *, char *, int *);
-/* given array of letters, get their number array for int -> str bit-packing conversion and vise-versa */
-void get_new_num_refs(char*, int*);
+/* GIVEN ARRAY OF LETTERS, GET THEIR # ARRAY FOR INT -> STR BIT-PACKING CONVERSION & VISE-VERSA */
+void get_new_num_refs(char *, int *);
 void convert_pass_to_ss_ss_txt(char *, char *);
 /* COMMON WORD SUBSTITUTIONS */
 char cw_keys[222][50] = { /* single letter */
@@ -152,11 +152,11 @@ char cw_word[222][50] = { /* single letter */
 	"day", "get", "his"
 };
 /* GLOBAL VARIABLES */
-char ss_array_matrix[300][40][152], s_compress_storage[300][152], s_max_buffer[30000], ss_max_buffer[30000];;
-char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#$<=>@[]^{|}~\0";
+char ss_array_matrix[300][40][152], s_compress_storage[300][152], s_max_buffer[30000], ss_max_buffer[30000];
+char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#$<=>@[]^{|}~";
 char alphaUP[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ", num_refs[] = "0123456789";
 int alphaUP_shift[] = {38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38};
-int corresponding_idx[] = {27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52};
+int correl8ed_idx[] = {27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52};
 int cw_idxs[224], chunk_count = 0, original_bytes = 0, zip_info = 0;
 
 int main(int argc, char *argv[]) {
@@ -500,7 +500,7 @@ int s_compress(char ss[][152], char *s) { /* returns # of substrings */
 	int sub_word_count = delta_sub_words(s, 152, cw_word, cw_keys); /* remove common words, insert keys */
 	if(zip_info == 1) {
 		printf("SUBD WORDS => LEN: %lu, STR: %s\n", strlen(s), s);
-		print_cw_used(sub_word_count); /* print common words subbed and associated keys */
+		print_cw_used(sub_word_count); /* print common words subbed & associated keys */
 	}
 	int ss_idx = 0, found;
 	char *p = s, *r;
@@ -534,7 +534,7 @@ void process_split_s(char ss[][152], char *s, char *s_compress_storage, char *ar
 	if(zip_info == 1) print_ss(ss, ss_total);
 }
 /******************************************************************************
-* SS DE/COMPRESSION FUNCTIONS
+* (S)UB(S)TRING SS DE/COMPRESSION FUNCTIONS
 ******************************************************************************/
 void ss_decompressor() {
 	for(int i = 9; i >= 0; i--) {
@@ -610,7 +610,7 @@ void sub_ss_keys(int flag) {
 }
 int in_top_ten(int byte_num) { /* returns position of bytenum in byte_ranker array */
 	int i, j;
-	for(i = 0; i < byte_rank_total; i++) { /* if byte amount in top ten and not a substring of a previous top ten ss */
+	for(i = 0; i < byte_rank_total; i++) { /* if byte amount in top ten & not a substring of a previous top ten ss */
 		if(byte_num > byte_ranker[i].byte_amount) { /* shift all other elem in array down */
 			for(j = byte_rank_total - 1; j > i; j--) byte_ranker[j] = byte_ranker[j - 1];
 			if(byte_rank_total < 10) byte_rank_total++;
@@ -660,7 +660,7 @@ void ss_compress(int SS_MAX_DUPLICATE_SIZE) { /* ARG = LENGTH OF SS DUPLICATE ST
 		}
 	}
 }
-void sub_ss_refs(char *s, int ref) { /* STORE SSUBSTRINGS IN STRUCT AND ID TOP 10 MOST MEMORY CONSUMING */
+void sub_ss_refs(char *s, int ref) { /* STORE SSUBSTRINGS IN STRUCT & ID TOP 10 MOST MEMORY CONSUMING */
 	char *p = ss_max_buffer, *q = s, temp[30000];
 	int l = strlen(s), i, ch_ref = ((char)(ref) + 48);
 	while(*p != '\0') { /* check if burrent ss is a substring of current top ten ss */
@@ -726,10 +726,10 @@ void alter_alphabet_arr(char *reps, char *new_alpha, int *new_shift) {
 		} else {
 			new_alpha[i] = alphaUP[i];
 		}
-		new_shift[i] = (int)(new_alpha[i] - corresponding_idx[i]);
+		new_shift[i] = (int)(new_alpha[i] - correl8ed_idx[i]);
 	}
 }
-void get_new_num_refs(char *s, int *n) { for(int i = 0; i < 26; i++) n[i] = (int)(s[i] - corresponding_idx[i]); }
+void get_new_num_refs(char *s, int *n) { for(int i = 0; i < 26; i++) n[i] = (int)(s[i] - correl8ed_idx[i]); }
 /******************************************************************************
 * (S)UB(S)TRING REFERENCE KEY ANALYSIS FUNCTIONS
 ******************************************************************************/
@@ -864,10 +864,10 @@ void hide_int(char *arg2, char *arg1, char *s) {
 		short_store[j] = temp_1;
 		short_store[j + 1] = temp_2;
 	}
-	/* COUNT DOUBLE INSTANCES OF SHORT AND MAKE ARRAY OF THEM */
+	/* COUNT DOUBLE INSTANCES OF SHORT & MAKE ARRAY OF THEM */
 	unsigned short short_copies[j]; /* sub short duplicates with char references */
 	int total_short_dubs = count_double_shorts(short_copies, short_store, j);
-	int short_order[j]; /* get order of chars(0) and shorts(1) to store for reading */
+	int short_order[j]; /* get order of chars(0) & shorts(1) to store for reading */
 	int order_length = get_short_char_order(short_order, short_copies, short_store, j, total_short_dubs);
 	int const BUFF_BIT_SIZE = order_length;
 	int NUMBER_OF_BIT_PACKETS = 1 + ((BUFF_BIT_SIZE - 1) / 8);
@@ -892,7 +892,7 @@ void hide_int(char *arg2, char *arg1, char *s) {
 		return;
 	}
 	int byte_count = 0;
-	for(int k = 0; k < order_length; k++) { /* store shorts and chars (shorts and duplicate keys) */
+	for(int k = 0; k < order_length; k++) { /* store shorts & chars (shorts & duplicate keys) */
 		int short_copy_idx = short_num_copies(short_store[k], short_copies, total_short_dubs);
 		if(short_copy_idx == -1) {
 			fwrite(&short_store[k], sizeof(unsigned short), 1, ft);
@@ -1056,7 +1056,7 @@ void two_ptr_str_splice(char *t, char *first, char *last) {
 	t[i] = '\0';
 }
 /******************************************************************************
-* CONVERT 2 UNSIGNED SHORTS TO 1 INT AND VISE-VERSA
+* CONVERT 2 UNSIGNED SHORTS TO 1 INT & VISE-VERSA
 ******************************************************************************/
 unsigned int shorts_to_int(unsigned short n1, unsigned short n2) {
 	unsigned int num1 = ((unsigned int)(n1) << 16), num2 = ((unsigned int)n2), num;
@@ -1080,8 +1080,8 @@ int get_short_char_order(int short_order[], unsigned short short_copies[], unsig
 }
 int short_num_copies(unsigned short num_short, unsigned short short_copies[], int size) {
 	int i;
-	for(i = 0; i < size; i++) if(short_copies[i] == num_short) return i; /* is copy and will be char */
-	return -1; /* not copy and will be unsigned short */
+	for(i = 0; i < size; i++) if(short_copies[i] == num_short) return i; /* is copy & will be char */
+	return -1; /* not copy & will be unsigned short */
 }
 int count_double_shorts(unsigned short short_copies[], unsigned short num_store[], int size) {
 	int found, total = 0, count = 0, i, j;
