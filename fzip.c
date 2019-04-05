@@ -536,7 +536,7 @@ void process_split_s(char ss[][152], char *s, char *s_compress_storage, char *ar
 /******************************************************************************
 * SS DE/COMPRESSION FUNCTIONS
 ******************************************************************************/
-void ss_decompressor() { 
+void ss_decompressor() {
 	for(int i = 9; i >= 0; i--) {
 		char *p = ss_max_buffer, t[1000];
 		while(*p != '\0') {
@@ -1190,7 +1190,7 @@ void unpack(int *int_array, int BIT_SIZE, char pack_ch) { /* pass each char in p
 void packer(int BUFF_BIT_SIZE, int NUMBER_OF_BIT_PACKETS, int buffer[], char packed[]) {
 	int temp_size;
 	for(int i = 0; i < NUMBER_OF_BIT_PACKETS; i++) {
-		if(LESS_THAN_8_BITS_LEFT(BUFF_BIT_SIZE, i) == 1) { /* if < 8 bits left */
+		if(LESS_THAN_8_BITS_LEFT(BUFF_BIT_SIZE, i)) { /* if < 8 bits left */
 			temp_size = REMAINING_BITS(BUFF_BIT_SIZE, i); /* get remaining bits */
 		} else {
 			temp_size = 8;
@@ -1203,7 +1203,7 @@ void packer(int BUFF_BIT_SIZE, int NUMBER_OF_BIT_PACKETS, int buffer[], char pac
 void unpacker(int BUFF_BIT_SIZE, int NUMBER_OF_BIT_PACKETS, int buffer[], char packed[]) {
 	int temp_size;
 	for(int i = 0; i < NUMBER_OF_BIT_PACKETS; i++) {
-		if(LESS_THAN_8_BITS_LEFT(BUFF_BIT_SIZE, i) == 1) { /* if < 8 bits left */
+		if(LESS_THAN_8_BITS_LEFT(BUFF_BIT_SIZE, i)) { /* if < 8 bits left */
 			temp_size = REMAINING_BITS(BUFF_BIT_SIZE, i); /* get remaining bits */
 		} else {
 			temp_size = 8;
