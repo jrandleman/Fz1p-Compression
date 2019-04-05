@@ -7,9 +7,19 @@
 #define DASH_PUNC(C_CH) (C_CH=='['||C_CH=='{'||C_CH==']'||C_CH=='}'||C_CH==':'||C_CH==';'||C_CH=='('||C_CH==')'||C_CH=='/')
 #define LESS_THAN_8_BITS_LEFT(BIT_TOT,BIT_ID) ((BIT_TOT - (8 * (BIT_ID + 1))) < 0)
 #define REMAINING_BITS(BIT_TOT,BIT_ID) (8 - ((8 * (BIT_ID + 1)) - BIT_TOT))
+/* STRUCT STORING TOP TEN MEMORY CONSUMING SUBSTRING SS' */
+typedef struct byte_rank {
+	char ss_duplicate[11];
+	int freq;
+	int byte_amount;
+} BYTE_RANK;
+BYTE_RANK byte_ranker[10];
+BYTE_RANK top_ten_ss[10];
+int byte_rank_total;
 /* 'HIDE' FILE FUNCTIONS */
 void hide(char *, char *);
-void write_pass_ss_keys(char [][152], int, char *);
+void store_pass_ss_keys(char [][152], int);
+void write_pass_ss_keys(char *);
 void read_txt_engl(char *, char *);
 void write_int_compressed(char *, char *);
 /* 'SHOW' FILE FUNCTIONS */
@@ -18,9 +28,10 @@ void read_pass_ss_keys(char *);
 void show_txt_compressed(char *, char *);
 /* BOTH => ERROR/PASSWORD/TXT-FILE CONVERT FUNCTIONS */
 void err_info();
-void convert_password_to_txt(char *, char *);
+void convert_pass_to_ss_bin(char *, char *);
+void convert_pass_to_txt(char *, char *);
 void convert_txt_to_bin(char *, char *);
-void convert_pass_to_bin(char *, char *);
+void convert_pass_to_short_bin(char *, char *);
 /* COMMON WORD SUBSTITUTION FUNCTIONS */
 void splice_str(char *, char *, int, int);
 int delta_sub_words(char *, int, char [][50], char [][50]);
@@ -45,10 +56,10 @@ void print_ss(char [][152], int);
 int count_newl(char *);
 int find_newl(char *);
 void two_ptr_str_splice(char *, char *, char *);
-int get_ch_shift(char);
-int get_num_shift(int);
-int str_to_int(char *);
-int int_to_str(unsigned int, char *, int);
+int get_ch_shift(char, char *, int *);
+int get_num_shift(int, char *, int *);
+int str_to_int(char *, char *, int *);
+int int_to_str(unsigned int, char *, int, int, char *, int *);
 void hide_int(char *, char *, char *);
 void show_int(char *, char *);
 void process_split_int(char *);
@@ -66,6 +77,22 @@ void pack(int[], int, char[], int);
 void unpack(int *, int, char);
 void packer(int, int, int[], char[]);
 void unpacker(int, int, int[], char[]); 
+/* SUBSTRING SS COMPRESSION FUNCTIONS */
+void ss_compressor();
+void ss_decompressor();
+int in_top_ten(int);
+int is_nested_ss(char *, int);
+void sub_ss_keys(int);
+void sub_ss_refs(char *, int);
+void ss_compress(int);
+int in_ss_copies(char *, int, char [][152]);
+int same_ss_str(int, int, int);
+void find_missing_ch_from_ss_max(char *);
+/* given letters not present, alter alphabet array to splice in numbers for vacant ss letters for int/str bit-packing */
+void alter_alphabet_arr(char *, char *, int *);
+/* given array of letters, get their number array for int -> str bit-packing conversion and vise-versa */
+void get_new_num_refs(char*, int*);
+void convert_pass_to_ss_ss_txt(char *, char *);
 /* COMMON WORD SUBSTITUTIONS */
 char cw_keys[222][50] = { /* single letter */
 	"_b_", "_d_", "_e_", "_f_", "_g_", "_h_", "_j_", "_k_", "_l_", "_m_", "_n_", "_o_", 
@@ -125,9 +152,12 @@ char cw_word[222][50] = { /* single letter */
 	"day", "get", "his"
 };
 /* GLOBAL VARIABLES */
-char ss_array_matrix[300][40][152], s_compress_storage[300][152], s_max_buffer[30000];
+char ss_array_matrix[300][40][152], s_compress_storage[300][152], s_max_buffer[30000], ss_max_buffer[30000];;
 char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#$<=>@[]^{|}~\0";
-int cw_idxs[224], chunk_count = 0, original_bytes = 0, zip_info = 0; // NO NEED COMPR_BYTES
+char alphaUP[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ", num_refs[] = "0123456789";
+int alphaUP_shift[] = {38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38,38};
+int corresponding_idx[] = {27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52};
+int cw_idxs[224], chunk_count = 0, original_bytes = 0, zip_info = 0;
 
 int main(int argc, char *argv[]) {
 	if(argc < 4) {
@@ -155,6 +185,7 @@ int main(int argc, char *argv[]) {
 ******************************************************************************/
 void hide(char *arg2, char *arg1) {
 	read_txt_engl(arg2, arg1); /* process text file in 150 char chunks */
+	write_pass_ss_keys(arg2); /* write int compressed ss keys to pass bin file */
 	write_int_compressed(arg2, arg1); /* write compressed string to text file */
 	int choice;
 	printf("DELETE ORIGINAL TEXT FILE? (enter 1 - yes, 0 - no):\n\n>>> ");
@@ -177,13 +208,13 @@ void show(char *arg2, char *arg1) {
 	printf("==============================================================================\n\n");
 }
 void err_info() {
-	printf("\n==================== INVALID EXECUTION! ====================\n");
+	printf("\n============================= INVALID EXECUTION! =============================\n");
 	printf("$ gcc -o fzip fzip.c\n$ ./fzip textfile.txt yourpassword hide/show\n");
-	printf("============================================================");
+	printf("==============================================================================");
 	printf("\n=> FILE.TXT FORMAT: AVOID NUMBERS, NEWLINES, & UNDERSCORES!\n");
-	printf("============================================================");
+	printf("==============================================================================");
 	printf("\n=> COMPRESSION INFORMATION: $ ... hide/show info\n");
-	printf("============================================================\n\n");
+	printf("==============================================================================\n\n");
 }
 /******************************************************************************
 * TEXT FILE FUNCTIONS
@@ -232,69 +263,138 @@ void write_int_compressed(char *arg2, char *arg1) {
 	hide_int(arg2, arg1, s_max); /* compress to integers */
 }
 void read_pass_ss_keys(char *arg2) {
-	char ss_buffer[100], ch_buffer, filename[75];
-	convert_password_to_txt(filename, arg2);
-	int n = 0, m = 0; /* m - 2D ss array (sentence), n - ss (word) => WRT ss_array_matrix[m][n][] */
+	int int_array_length, j, k, end_idx, current_idx = 0, new_shift[26];
+	int n = 0, m = 0; /* m - 2D ss array (sentence), n - ss (word) => W.R.T. ss_array_matrix[m][n][] */
+	char filename[75], passfile[75], ss_file[75], store_temp[5], ss_buffer[100], ch_buffer, new_alpha[26], ss_ss_refs[26];
+	convert_pass_to_ss_bin(filename, arg2);
+	convert_pass_to_txt(passfile, arg2);
+	convert_pass_to_ss_ss_txt(ss_file, arg2);
+	/* READ SS_SS KEYS */
 	FILE *fp;
-	if((fp = fopen(filename, "r")) == NULL) {
-		printf("\n\n(!!!) ERROR READING PASSWORD BIN FILE (!!!)\n\n");
+	if((fp = fopen(ss_file, "r"))== NULL) {
+		printf("\n\n(!!!) ERROR READING PASSWORD TXT SS_SS FILE (!!!)\n");
+		exit(0);
+	}
+	for(int i = 0; i < 10; i++) fscanf(fp, "%c%s\n", &ss_ss_refs[i], top_ten_ss[i].ss_duplicate);
+	fclose(fp);
+	remove(ss_file);
+	alter_alphabet_arr(ss_ss_refs, new_alpha, new_shift);
+	get_new_num_refs(new_alpha, new_shift);
+	/* READ SS INT ARRAY */
+	if((fp = fopen(filename, "rb")) == NULL) { /* get ss int array */
+		printf("\n\n(!!!) ERROR READING SS COMPR INT ARRAY BIN INFORMATION (!!!)\n");
+		exit(0);
+	}
+	fread(&int_array_length, sizeof(unsigned short), 1, fp); /* get bit-packed ss int array length */
+	unsigned int read_arr[int_array_length];
+	fread(read_arr, sizeof(unsigned int), int_array_length, fp);
+	fclose(fp);
+	remove(filename); /* delete password bin file once int compr ss key array retrieved */
+	for(j = 0; j < int_array_length; j++) { /* convert ints to letters */
+		unsigned int n_temp = read_arr[j]; /* int to decompress to str */
+		for(k = 0; k < 7 && n_temp != 0; k++) n_temp >>= 6; /* get number of letters in int */
+		end_idx = int_to_str(read_arr[j], store_temp, k, 1, new_alpha, new_shift); /* return number of letters (5) */
+		strcpy(&ss_max_buffer[current_idx], store_temp); /* add str to rest of decompressed ss's */
+		current_idx += end_idx; /* increment ss_max_buffer index by # of letters in str just stored */
+	}
+	ss_decompressor(); /* decomperess ss_max_buffer */
+	/* WRITE INT DECMOPRESSED SS CHAR STR TO TEXT FILE */
+	if((fp = fopen(passfile, "w")) == NULL) {
+		printf("\n\n(!!!) ERROR WRITING DECOMPR SS STR TO PASSWORD TXT FILE (!!!)\n\n");
+		exit(0);
+	}
+	fprintf(fp, "%s", ss_max_buffer);
+	fclose(fp);
+	/* READ SS CHAR KEYS FROM TEXT FILE */
+	if((fp = fopen(passfile, "r")) == NULL) {
+		printf("\n\n(!!!) ERROR READING PASSWORD TXT FILE (!!!)\n\n");
 		exit(0);
 	}
 	while(fscanf(fp, "%s%c", ss_buffer, &ch_buffer) > 0) {
 		char *p = ss_buffer, *q = ss_array_matrix[m][n];
-		while(*p != '\0') *q++ = *p++; /* copy ss from bin to 2d ss array in 3d matrix */
+		while(*p != '\0') *q++ = *p++; /* copy ss from bin to 2D ss array in 3D matrix */
 		*q = '\0';  /* terminate ss */
 		if(ch_buffer == '\n') {
-			ss_array_matrix[m][n+1][0] = '\0'; /* terminate ss 2d array */
-			m++; /* move to next 2d ss array (1 per s_chunk) in 3d matrix */
+			ss_array_matrix[m][n+1][0] = '\0'; /* terminate ss 2D array */
+			m++; /* move to next 2D ss array (1 per s_chunk) in 3D matrix */
 			n = 0; /* start from row (ss) 0 */
 		} else {
 			n++; /* move to next row (ss) */
 		}
 	}
 	fclose(fp);
-	remove(filename); /* delete password txt file once ss keys retrieved */
+	remove(passfile); /* delete password txt file once ss keys retrieved */
 }
-void write_pass_ss_keys(char ss[][152], int ss_total, char *arg2) {
-	char filename[75];
-	convert_password_to_txt(filename, arg2);
+void write_pass_ss_keys(char *arg2) {
+	/* REPPLACE TOP 10 SUBSTRINGS IN SUBSTRINGS KEY */
+	char avail_ss_ss_refs[27], new_alpha[26], ss_file[75], ss_ss_storage[350];
+	int new_shift[26];
+	find_missing_ch_from_ss_max(avail_ss_ss_refs); /* see which capital letters not used in ss to use as refs for ss_ss */
+	/* enter #s into corresponding missing capital letter array spots for converting strs to ints & vise-versa */
+	alter_alphabet_arr(avail_ss_ss_refs, new_alpha, new_shift);
+	convert_pass_to_ss_ss_txt(ss_file, arg2);
+	ss_compressor();
 	FILE *fp;
-	(chunk_count == 0) ? (fp = fopen(filename, "w")) : (fp = fopen(filename, "a"));
-	if(fp == NULL) {
-		printf("\n\n(!!!) ERROR WRITING PASSWORD BIN FILE (!!!)\n");
+	if((fp = fopen(ss_file, "w"))== NULL) {
+		printf("\n\n(!!!) ERROR WRITING PASSWORD TXT SS_SS FILE (!!!)\n");
 		return;
 	}
-	for(int i = 0; i < ss_total; i++) {
-		fprintf(fp, "%s", ss[i]);
-		if(i < ss_total - 1) fprintf(fp, "%c", '\t');
+	for(int i = 0; i < 10; i++) fprintf(fp, "%c%s\n", avail_ss_ss_refs[i], top_ten_ss[i].ss_duplicate);
+	fclose(fp);
+
+	int end_index, i, s_size = strlen(ss_max_buffer), data_chunks = 1 + ((strlen(ss_max_buffer) - 1)/5);
+	unsigned int num_store[data_chunks]; /* holds bit-packed ints */
+	char filename[75], *q = ss_max_buffer; /* current place in str */
+	convert_pass_to_ss_bin(filename, arg2);
+
+	for(i = 0; *q != '\0'; i++) { /* convert letters to ints */
+		char *p = q, s_temp[s_size];
+		strcpy(s_temp, p);
+		s_temp[5] = '\0'; /* dedicate storage int 5 letters */
+		q += 5; /* traverse string to new 5 letter chunk or up to \n */
+		num_store[i] = str_to_int(s_temp, new_alpha, new_shift); /* store int */
 	}
-	fprintf(fp, "%c", '\n');
+	unsigned int write_arr[i];
+	for(int m = 0; m < i; m++) write_arr[m] = num_store[m]; /* don't write excess numbers */
+	/* WRITE COMPRESSED SS INT ARRAY TO PASSWORD BIN FILE */
+	(chunk_count == 0) ? (fp = fopen(filename, "wb")) : (fp = fopen(filename, "ab"));
+	if(fp == NULL) {
+		printf("\n\n(!!!) ERROR WRITING PASSWORD BIN SS FILE (!!!)\n");
+		return;
+	}
+	fwrite(&i, sizeof(unsigned short), 1, fp); /* write length of write_arr int array */
+	fwrite(write_arr, sizeof(unsigned int), i, fp);
 	fclose(fp);
 }
-void convert_password_to_txt(char *tfile, char *pass) {
+void store_pass_ss_keys(char ss[][152], int ss_total) {
+	/* \t => new row && \n => new ss 2D matrix */
+	for(int i = 0; i < ss_total; i++) { /* store all ss in single string for int compr */
+		sprintf(&ss_max_buffer[strlen(ss_max_buffer)], "%s", ss[i]);
+		if(i < ss_total - 1) sprintf(&ss_max_buffer[strlen(ss_max_buffer)], "%c", '\t');
+	}
+	sprintf(&ss_max_buffer[strlen(ss_max_buffer)], "%c", '\n');
+}
+void convert_pass_to_txt(char *tfile, char *pass) {
 	char *ptr = tfile, *qtr = pass; /* convert password into text file name */
 	while(*qtr != '\0') *ptr++ = *qtr++;
 	strcpy(ptr, "_sskey.txt");
 }
+void convert_pass_to_ss_bin(char *tfile, char *pass) {
+	char *ptr = tfile, *qtr = pass; /* convert password into text file name */
+	while(*qtr != '\0') *ptr++ = *qtr++;
+	strcpy(ptr, "_sskey.bin");
+}
+void convert_pass_to_ss_ss_txt(char *tfile, char *pass) {
+	char *ptr = tfile, *qtr = pass; /* convert password into text file name */
+	while(*qtr != '\0') *ptr++ = *qtr++;
+	strcpy(ptr, "_s4key.txt");
+}
 void convert_txt_to_bin(char *filename, char *arg1) {
 	strcpy(filename, arg1);
-	int len = strlen(filename);
-	filename[len - 4] = '_';
-	filename[len - 3] = 'c';
-	filename[len - 2] = 'o';
-	filename[len - 1] = 'm';
-	filename[len] = 'p';
-	filename[len + 1] = 'r';
-	filename[len + 2] = 'e';
-	filename[len + 3] = 's';
-	filename[len + 4] = 's';
-	filename[len + 5] = '.';
-	filename[len + 6] = 'b';
-	filename[len + 7] = 'i';
-	filename[len + 8] = 'n';
-	filename[len + 9] = '\0';
+	int len = strlen(filename) - 4;
+	strcpy(&filename[len], "_compress.bin");
 }
-void convert_pass_to_bin(char *passfile, char *arg2) {
+void convert_pass_to_short_bin(char *passfile, char *arg2) {
 	strcpy(&arg2[strlen(arg2)], "_shortkey.bin");
 	strcpy(passfile, arg2);
 }
@@ -381,7 +481,7 @@ void modify_s(char *s, int sp_flag) {
 	}
 }
 /******************************************************************************
-* DE/COMPRESSION FUNCTIONS
+* STR DE/COMPRESSION FUNCTIONS
 ******************************************************************************/
 void s_decompress(char ss[][152], char *s) {
 	char *p = s, t[152];
@@ -429,10 +529,207 @@ void process_split_s(char ss[][152], char *s, char *s_compress_storage, char *ar
 	if(zip_info == 1) printf("\nORIGINALLY => LEN: %lu, STR: %s\n", strlen(s), s);
 	int ss_total = s_compress(ss, s);
 	if(zip_info == 1) printf("COMPRESSED => LEN: %lu, STR: %s\n", strlen(s), s);
-	write_pass_ss_keys(ss, ss_total, arg2); /* store ss keys in bin"password"file */
+	store_pass_ss_keys(ss, ss_total); /* store ss keys in bin"password"file */
 	strcpy(s_compress_storage, s); /* store compressed string */
 	if(zip_info == 1) print_ss(ss, ss_total);
 }
+/******************************************************************************
+* SS DE/COMPRESSION FUNCTIONS
+******************************************************************************/
+void ss_decompressor() { 
+	for(int i = 9; i >= 0; i--) {
+		char *p = ss_max_buffer, t[1000];
+		while(*p != '\0') {
+			int move = 1;
+			if(*p == num_refs[i]) {
+				sprintf(t, "%s%s", top_ten_ss[i].ss_duplicate, p + 1);
+				move = strlen(top_ten_ss[i].ss_duplicate);
+				strcpy(p, t);
+			}
+			p += move;
+		}
+	}
+	sub_ss_keys(1);
+}
+void ss_compressor() {
+	sub_ss_keys(0);
+	for(int top_ten_id = 0; top_ten_id < 10; top_ten_id++) {
+		byte_rank_total = 0;
+		for(int i = 10; i >= 2; i--) ss_compress(i);
+		int most_saved = 0, most_saved_id;
+		for(int j = 0; j < 10; j++) {
+			int saved_bytes = (byte_ranker[j].byte_amount - strlen(byte_ranker[j].ss_duplicate) - 1 - byte_ranker[j].freq); 
+			if(saved_bytes > most_saved && is_nested_ss(byte_ranker[most_saved_id].ss_duplicate, top_ten_id) == 0) {
+				most_saved = saved_bytes;
+				most_saved_id = j;
+			}
+		}
+		top_ten_ss[top_ten_id].byte_amount = byte_ranker[most_saved_id].byte_amount;
+		top_ten_ss[top_ten_id].freq = byte_ranker[most_saved_id].freq;
+		strcpy(top_ten_ss[top_ten_id].ss_duplicate, byte_ranker[most_saved_id].ss_duplicate);
+		sub_ss_refs(top_ten_ss[top_ten_id].ss_duplicate, top_ten_id); /* replace all instances of most frequent ss with int ref */
+	}
+}
+void sub_ss_keys(int flag) {
+	char *ss_ptr = ss_max_buffer, temp[1000];
+	if(flag == 1) { /* decompress */
+		while(*ss_ptr != '\0') {
+			if(*ss_ptr == 'Z') {
+				*ss_ptr = '\t';
+			} else if(*ss_ptr == '#') {
+				*ss_ptr = '\n';
+			} else if(*ss_ptr == 'Y') {
+				sprintf(temp, "%c%c%s", '\n', '_', ss_ptr + 1);
+				strcpy(ss_ptr, temp);
+			} else if(*ss_ptr == 'X') {
+				sprintf(temp, "%c%c%c%s", '_', '\n', '_', ss_ptr + 1);
+				strcpy(ss_ptr, temp);
+			}
+			ss_ptr++;
+		}
+	} else { /* compress */
+		while(*ss_ptr != '\0') {
+			if(*ss_ptr == '\t') {
+				*ss_ptr = 'Z';
+			} else if(*ss_ptr == '\n') {
+				if(*(ss_ptr + 1) == '_') {
+					strcpy(temp, ss_ptr + 2);
+					strcpy(ss_ptr + 1, temp);
+					*ss_ptr = 'Y';
+				} else {
+					*ss_ptr = '#';
+				}
+			} else if(*ss_ptr == '_' && *(ss_ptr + 1) == '\n' && *(ss_ptr + 2) == '_') {
+				strcpy(temp, ss_ptr + 3);
+				strcpy(ss_ptr + 1, temp);
+				*ss_ptr = 'X';
+			}
+			ss_ptr++;
+		}
+	}
+}
+int in_top_ten(int byte_num) { /* returns position of bytenum in byte_ranker array */
+	int i, j;
+	for(i = 0; i < byte_rank_total; i++) { /* if byte amount in top ten and not a substring of a previous top ten ss */
+		if(byte_num > byte_ranker[i].byte_amount) { /* shift all other elem in array down */
+			for(j = byte_rank_total - 1; j > i; j--) byte_ranker[j] = byte_ranker[j - 1];
+			if(byte_rank_total < 10) byte_rank_total++;
+			return i;
+		}
+	}
+	if(byte_rank_total < 10) { /* add new rank to the end */
+		byte_rank_total++;
+		return i;
+	}
+	return -1;
+}
+void ss_compress(int SS_MAX_DUPLICATE_SIZE) { /* ARG = LENGTH OF SS DUPLICATE STRINGS */
+	char ss_local[150][152];
+	int len = strlen(ss_max_buffer), ss_frequency[150], ss_idx = 0, found, i, j, k;
+	for(int l = 0; l < 150; l++) ss_frequency[l] = 0; /* init ss_prev array */
+	for(i = 0; i < (len - 2); i++) { /* first ss instance */
+		found = 0;
+		for(j = i + 2; j < (len - SS_MAX_DUPLICATE_SIZE - 1); j++) { /* second ss instance */
+			if(same_ss_str(i, j, SS_MAX_DUPLICATE_SIZE) == 1) {
+				char temp[SS_MAX_DUPLICATE_SIZE + 1];
+				for(int l = 0; l < SS_MAX_DUPLICATE_SIZE; l++) temp[l] = ss_max_buffer[i + l];
+				temp[SS_MAX_DUPLICATE_SIZE] = '\0';
+				if(in_ss_copies(temp, ss_idx, ss_local) == 0) {
+					found++;
+					ss_frequency[ss_idx] += 1;
+				}
+			}
+		}
+		if(found > 0) {
+			char temp[SS_MAX_DUPLICATE_SIZE + 1];
+			for(int l = 0; l < SS_MAX_DUPLICATE_SIZE; l++) temp[l] = ss_max_buffer[i + l];
+			temp[SS_MAX_DUPLICATE_SIZE] = '\0';
+			strcpy(ss_local[ss_idx], temp);
+			ss_frequency[ss_idx] += 1;
+			ss_idx++;
+		}
+	}
+	/* check if any of ss copies are in the top ten most byte-consuming */
+	for(k = 0; k < ss_idx; k++) {
+		int total_bytes = (ss_frequency[k] * (strlen(ss_local[k]) + 1));
+		int rank_id = in_top_ten(total_bytes);
+		if(rank_id != -1) {
+			byte_ranker[rank_id].byte_amount = total_bytes;
+			byte_ranker[rank_id].freq = ss_frequency[k];
+			strcpy(byte_ranker[rank_id].ss_duplicate, ss_local[k]);
+		}
+	}
+}
+void sub_ss_refs(char *s, int ref) { /* STORE SSUBSTRINGS IN STRUCT AND ID TOP 10 MOST MEMORY CONSUMING */
+	char *p = ss_max_buffer, *q = s, temp[30000];
+	int l = strlen(s), i, ch_ref = ((char)(ref) + 48);
+	while(*p != '\0') { /* check if burrent ss is a substring of current top ten ss */
+		for(i = 0; i < l && *(p + i) != '\0'; i++) if(*(p + i) != *(q + i)) break;
+		if(i == l) { /* is a substring */
+			strcpy(temp, p + l);
+			strcpy(p + 1, temp);
+			*p = ch_ref;
+		}
+		p++;
+	}
+}
+int is_nested_ss(char *t, int up_to) {
+	for(int j = 0; j < up_to; j++) { /* for every ss in top ten byte consuming ss' */
+		char *p = byte_ranker[j].ss_duplicate, *q = t;
+		int l = strlen(t), i;
+		while(*p != '\0') { /* check if burrent ss is a substring of current top ten ss */
+			for(i = 0; i < l && *(p + i) != '\0'; i++) if(*(p + i) != *(q + i)) break;
+			if(i == l) break; /* is a substring */
+			p++;
+		}
+		if(*p != '\0') return 1; /* is a nested ss */
+	}
+	return 0;
+}
+int in_ss_copies(char *s, int size, char ss[][152]) {
+	for(int i = 0; i < size; i++) if(strcmp(s, ss[i]) == 0) return 1;
+	return 0;
+}
+int same_ss_str(int i, int j, int SS_MAX_DUPLICATE_SIZE) {
+	for(int k = 0; k < SS_MAX_DUPLICATE_SIZE; k++) if(ss_max_buffer[j + k] != ss_max_buffer[i + k]) return 0;
+	return 1;
+}
+void find_missing_ch_from_ss_max(char *s) {
+	int s_idx = 0;
+	for(int i = 0; i < 26; i++) {
+		char ch = alphaUP[i], *p = ss_max_buffer;
+		while(*p != '\0') {
+			if(*p == ch) break;
+			p++;
+		}
+		if(*p == '\0') {
+			s[s_idx] = ch;
+			s_idx++;
+		}
+	}
+	s[s_idx] = '\0';
+}
+void alter_alphabet_arr(char *reps, char *new_alpha, int *new_shift) {
+	char ten_reps[26];
+	strcpy(ten_reps, reps);
+	ten_reps[10] = '\0';
+	int num_ref_idx = 0;
+	for(int i = 0; i < 26; i++) {
+		char *p = ten_reps;
+		while(*p != '\0') {
+			if(alphaUP[i] == *p) break;
+			p++;
+		}
+		if(*p != '\0') {
+			new_alpha[i] = num_refs[num_ref_idx];
+			num_ref_idx++;
+		} else {
+			new_alpha[i] = alphaUP[i];
+		}
+		new_shift[i] = (int)(new_alpha[i] - corresponding_idx[i]);
+	}
+}
+void get_new_num_refs(char *s, int *n) { for(int i = 0; i < 26; i++) n[i] = (int)(s[i] - corresponding_idx[i]); }
 /******************************************************************************
 * (S)UB(S)TRING REFERENCE KEY ANALYSIS FUNCTIONS
 ******************************************************************************/
@@ -479,9 +776,7 @@ char adjust_ref_char(char ss_ref_ch) {
 /******************************************************************************
 * (S)UB(S)TRING FUNCTIONS
 ******************************************************************************/
-void store_ss(char ss[][152], char *p, int ss_idx) {
-	sprintf(ss[ss_idx], "%c%c", *p, *(p + 1));
-}
+void store_ss(char ss[][152], char *p, int ss_idx) { sprintf(ss[ss_idx], "%c%c", *p, *(p + 1)); }
 int clean_ss(char ss[][152], char *s, int ss_total) {
 	char *p;
 	int nest_idx = 0, nested_ss[40]; /* nested ss only ref'd by other ss, arr holds their idxs */
@@ -525,16 +820,14 @@ void trim_ss(char ss[][152], char *s, int nested_ss[40], int nest_total, int ss_
 			int curr_ss_len = strlen(ss[j]);
 			for(int l = 0; l < curr_ss_len; l++) {
 				if(is_ss_ref((nested_ss[i]+ 1), ss[j][l]) == 1)/* ss-ss references -= 1 ss_refs val as per del */
-					ss[j][l] = adjust_ref_char(ss[j][l]); /* IF^START 1 AFTER BECAUSE SS CAN ONLY BE REF'D BY OTHER SS BELOW THEM */
+					ss[j][l] = adjust_ref_char(ss[j][l]); /* START 1 AFTER BECAUSE SS CAN ONLY BE REF'D BY OTHER SS BELOW THEM */
 			}
 		}
-		for (int k = i; k < nest_total; k++) {
-			nested_ss[k] = adjust_ref_char(nested_ss[k]); /* nested-ss idxs -= 1 ss_refs val as per del */
-		}
+		/* nested-ss idxs -= 1 ss_refs val as per del */
+		for (int k = i; k < nest_total; k++) nested_ss[k] = adjust_ref_char(nested_ss[k]); 
 		ss[j][0] = '\0';
 		while(*p != '\0') { /* s ss references -= 1 ss_refs val as per del */
-			if(is_ss_ref((nested_ss[i]+ 1), *p) == 1) /* if *p = nested ref */
-				*p = adjust_ref_char(*p);
+			if(is_ss_ref((nested_ss[i]+ 1), *p) == 1) *p = adjust_ref_char(*p); /* if *p = nested ref */
 			p++;
 		}
 	}
@@ -548,10 +841,10 @@ void print_ss(char ss[][152], int ss_total) {
 ******************************************************************************/
 void hide_int(char *arg2, char *arg1, char *s) {
 	int newl_total = count_newl(s), end_index, i, j, s_size = strlen(s);
-	int data_chunks = (newl_total + 1 + ((s_size - 1)/5));
+	int data_chunks = (newl_total + 1 + ((s_size - 1)/5)), *num_ptr = alphaUP_shift;
 	unsigned int num_store[data_chunks]; /* holds n's */
-	char filename[75], passfile[75], *q = s; /* current place in str */
-	convert_pass_to_bin(passfile, arg2); /* convert password to bin file */
+	char filename[75], passfile[75], *alpha_ptr = alphaUP, *q = s; /* current place in str */
+	convert_pass_to_short_bin(passfile, arg2); /* convert password to bin file */
 
 	for(i = 0; *q != '\0'; i++) { /* convert letters to ints */
 		char *p = q, s_temp[s_size];
@@ -559,11 +852,11 @@ void hide_int(char *arg2, char *arg1, char *s) {
 		end_index = find_newl(s_temp); 
 		s_temp[end_index] = '\0'; /* dedicate storage int 5 letters or up to \n */
 		q += end_index; /* traverse string to new 5 letter chunk or up to \n */
-		num_store[i] = str_to_int(s_temp); /* store int */
+		num_store[i] = str_to_int(s_temp, alpha_ptr, num_ptr); /* store int */
 	}
 	unsigned int write_arr[i];
 	for(int m = 0; m < i; m++) write_arr[m] = num_store[m]; /* don't write excess numbers */
-	/* STORE INTS AS SHORTS AND REMOVE DUPLICATES */
+	/* STORE INTS AS SHORTS THEN REPLACE DUPLICATE SHORTS WITH CHAR KEY REFERENCE */
 	unsigned short short_store[i * 2];
 	for(j = 0; j < (i * 2); j += 2) { /* convert int from array into 2 shorts in array */
 		unsigned short temp_1, temp_2;
@@ -586,9 +879,9 @@ void hide_int(char *arg2, char *arg1, char *s) {
 		printf("\n\n(!!!) ERROR WRITING SHORT COMPR INFORMATION(!!!)\n");
 		return;
 	}
-	fwrite(&order_length, sizeof(int), 1, fp); /* length of string */
+	fwrite(&order_length, sizeof(unsigned short), 1, fp); /* length of string */
 	fwrite(packed, sizeof(char), NUMBER_OF_BIT_PACKETS, fp); /* packed short/char order of 1/0's into char array */
-	fwrite(&total_short_dubs, sizeof(int), 1, fp); /* number of dubplicate shorts (duplicate key length) */
+	fwrite(&total_short_dubs, sizeof(unsigned short), 1, fp); /* number of dubplicate shorts (duplicate key length) */
 	fwrite(short_copies, sizeof(unsigned short), total_short_dubs, fp); /* duplicate short array */
 	fclose(fp);
 	
@@ -611,7 +904,6 @@ void hide_int(char *arg2, char *arg1, char *s) {
 		}
 	}
 	fclose(ft);
-
 	float bytes_saved = 100*(1.000000 - ((float)byte_count/(float)original_bytes)); /* print compr stats */
 	printf("\n==============================================================================");
 	printf("\n%s ==COMPRESS=> %s\n", arg1, filename);
@@ -622,10 +914,12 @@ void hide_int(char *arg2, char *arg1, char *s) {
 * SHOW INT
 ******************************************************************************/
 void show_int(char *arg2, char *arg1) {
-	int i, j, k, last_newl = 0, current_idx = 0, end_idx, copy_count = 0;
-	char newl_buffer[3000], s_store[30000], store_temp[5], filename[75], passfile[75]; /* newl_buffer = \n split_str, s_store holds char from ints */
+	int i, j, k, last_newl = 0, current_idx = 0, end_idx, copy_count = 0, *num_ptr = alphaUP_shift;
+	char *alpha_ptr = alphaUP;
+	/* newl_buffer = \n split_str, s_store holds char from ints */
+	char newl_buffer[3000], s_store[30000], store_temp[5], filename[75], passfile[75];
 	convert_txt_to_bin(filename, arg1); /* original .txt filename to binary file */
-	convert_pass_to_bin(passfile, arg2); /* convert password to bin file */
+	convert_pass_to_short_bin(passfile, arg2); /* convert password to bin file */
 	/*********************************** UNPACK ***********************************/
 	int order_array_len, total_short_dubs;
 	FILE *fp;
@@ -633,7 +927,7 @@ void show_int(char *arg2, char *arg1) {
 		printf("\n\n(!!!) ERROR READING SHORT COMPR INFORMATION (!!!)\n");
 		return;
 	}
-	fread(&order_array_len, sizeof(int), 1, fp); /* get unpacked order array length */
+	fread(&order_array_len, sizeof(unsigned short), 1, fp); /* get unpacked order array length */
 
 	int const BUFF_BIT_SIZE = order_array_len; /* scraped from beginning of file */
 	int NUMBER_OF_BIT_PACKETS = 1 + ((BUFF_BIT_SIZE - 1) / 8);
@@ -642,7 +936,7 @@ void show_int(char *arg2, char *arg1) {
 	fread(packed, sizeof(char), NUMBER_OF_BIT_PACKETS, fp); /* read packed order */
 	unpacker(BUFF_BIT_SIZE, NUMBER_OF_BIT_PACKETS, unpacked, packed); /* unpack order into unpacked array */
 
-	fread(&total_short_dubs, sizeof(int), 1, fp);
+	fread(&total_short_dubs, sizeof(unsigned short), 1, fp);
 	unsigned short short_copies[total_short_dubs];
 	fread(short_copies, sizeof(unsigned short), total_short_dubs, fp);
 	fclose(fp);
@@ -676,7 +970,7 @@ void show_int(char *arg2, char *arg1) {
 	for(j = 0; j < int_array_length; j++) { /* convert ints to letters */
 		unsigned int n_temp = read_arr[j]; /* int to decompress to str */
 		for(k = 0; k < 7 && n_temp != 0; k++) n_temp >>= 6; /* get number of letters in int */
-		end_idx = int_to_str(read_arr[j], store_temp, k); /* return number of letters (5 or till \n) */
+		end_idx = int_to_str(read_arr[j], store_temp, k, 0, alpha_ptr, num_ptr); /* return number of letters (5 or till \n) */
 		strcpy(&s_store[current_idx], store_temp); /* add str to rest of decompressed str's */
 		current_idx += end_idx; /* increment s_store index by number of letters in str just stored */
 		if(end_idx == k - 1) { /* newline detected */
@@ -706,27 +1000,28 @@ void process_split_int(char *s_buffer) {
 /******************************************************************************
 * INT COMPRESSION / DECOMPRESSION
 ******************************************************************************/
-int str_to_int(char *s) { /* STORE LETTERS => COMPRESS */
+int str_to_int(char *s, char *cap_arr, int *num_arr) { /* STORE LETTERS => COMPRESS */
 	int s_size = strlen(s), ch_shift, i;
 	char *p = s;
 	unsigned int n = 0;
-	for(i = 0; i < s_size; i++, p++) { /* processes front-to-back */
-		ch_shift = get_ch_shift(*p);
+	for(i = 0; i < s_size; i++, p++) { /* processes front-to-back (right->left) */
+		ch_shift = get_ch_shift(*p, cap_arr, num_arr);
 		n |= (unsigned int)((*p) - ch_shift);
 		n <<= 6 * (i < s_size - 1);
 	}
 	return n;
 }
-int int_to_str(unsigned int n, char *t, int s_size) { /* READ LETTERS => DECOMPRESS */
+int int_to_str(unsigned int n, char *t, int s_size, int ss_flag, char *cap_arr, int *num_arr) { /* READ LETTERS => DECOMPRESS */
 	int num_shift, j;
 	char temp_t[6];
-	for(j = s_size - 1; j >= 0; j--) { /* processes back-to-front */
-		num_shift = get_num_shift(n & 63);
+	for(j = s_size - 1; j >= 0; j--) { /* processes back-to-front (left->right) */
+		num_shift = get_num_shift((n & 63), cap_arr, num_arr);
 		temp_t[j] = (char)((n & 63) + num_shift);
 		n >>= 6 * (j > 0);
 	}
 	temp_t[s_size] = '\0';
 	strcpy(t, temp_t);
+	if(ss_flag == 1) return s_size;
 	if(temp_t[s_size - 1] == '\n') { /* don't copy newlines */
 		t[s_size - 1] = '\0';
 		return s_size - 1;
@@ -808,11 +1103,9 @@ int count_double_shorts(unsigned short short_copies[], unsigned short num_store[
 /******************************************************************************
 * ADJUST CHAR FOR INT COMPR REPRESENTATION ('A' => 1, '\n' => 63)
 ******************************************************************************/
-int get_ch_shift(char ch) {
+int get_ch_shift(char ch, char *s, int *n) { /* store all the following ch's in 6 bits */
 	if(ch >= 'a' && ch <= 'z' == 1) { /* 'a' => 1, 'z' => 26 */
 		return 96;
-	} else if(ch >= 'A' && ch <= 'Z' == 1) { /* 'A' => 27, 'Z' => 52 */
-		return 38;
 	} else if(ch == '.') { /* 46 => 53 */
 		return -7;
 	} else if(ch == '_') { /* 95 => 54 */
@@ -829,18 +1122,19 @@ int get_ch_shift(char ch) {
 		return 37;
 	} else if(ch == '-') { /* 45 => 60 */
 		return -15;
-	} else if(ch == '#' || ch == '$') { /* 35 => 61 || 36 => 62 */
+	} else if(ch == '#') { /* 35 => 61 */
 		return -26;
-	} else if(ch == '\n') { /* 10 => 63 */
+	} else if(ch == '\t' || ch == '\n') { /* 9 => 62 || 10 => 63 */
 		return -53;
 	}
+	for(int i = 0; i < strlen(s); i++) if(ch == s[i]) return n[i]; /* 'A' => 27, 'Z' => 52 */
 	return 0;
 }
-int get_num_shift(int num) {
+int get_num_shift(int num, char *s, int *n) { /* MIGHT NOT NEED CHAR *S HERE!!! */
 	if(num >= 1 && num <= 26) { /* 'a' => 1, 'z' => 26 */
 		return 96;
 	} else if(num >= 27 && num <= 52) { /* 'A' => 27, 'Z' => 52 */
-		return 38;
+		return n[num - 27];
 	} else if(num == 53) { /* 46 => 53 */
 		return -7;
 	} else if(num == 54) { /* 95 => 54 */
@@ -857,9 +1151,9 @@ int get_num_shift(int num) {
 		return 37;
 	} else if(num == 60) { /* 45 => 60 */
 		return -15;
-	} else if(num == 61 || num == 62) { /* 35 => 61 || 36 => 62 */
+	} else if(num == 61) { /* 35 => 61 */
 		return -26;
-	} else if(num == 63) { /* 10 => 63 */
+	} else if(num == 62 || num == 63) { /* 9 => 62 || 10 => 63 */
 		return -53;
 	}
 	return 0;
@@ -878,7 +1172,7 @@ int get_shift_number(int BIT_SIZE) {
 void pack(int x[], int BIT_SIZE, char packed[], int pack_idx) {
 	int shift = get_shift_number(BIT_SIZE); /* FUNCITON TO MAKE SHIFT */
 	char c = 0;
-	for(int i = 0; i < BIT_SIZE; i++) { /* stores array from right to left => PRINT STORE ARRAY BACKWARDS IN FILE 2B READ FORWARDS */
+	for(int i = 0; i < BIT_SIZE; i++) { /* store array from right->left => PRINT STORE ARRAY BACKWARDS IN FILE 2B READ FORWARDS */
 		c |= x[i];
 		if(i < BIT_SIZE - 1) c <<= 1;
 	}
@@ -886,9 +1180,8 @@ void pack(int x[], int BIT_SIZE, char packed[], int pack_idx) {
 }
 void unpack(int *int_array, int BIT_SIZE, char pack_ch) { /* pass each char in packed */
 	int y[BIT_SIZE], shift = get_shift_number(BIT_SIZE); /* FUNCITON TO MAKE SHIFT */
-	for(int j = BIT_SIZE - 1; j >= 0; j--) { /* reads bits in char from left to write into int array */
-		y[j] = (((pack_ch << j) & shift) / shift);
-	}
+	/* reads bits in char from left to write into int array */
+	for(int j = BIT_SIZE - 1; j >= 0; j--) y[j] = (((pack_ch << j) & shift) / shift);
 	for(int k = 0; k < BIT_SIZE; k++) {
 		*int_array = y[k];
 		if(k < BIT_SIZE - 1) int_array++;
