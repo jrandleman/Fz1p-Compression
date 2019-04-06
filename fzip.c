@@ -95,34 +95,32 @@ void get_new_num_refs(char *, int *);
 void convert_pass_to_ss_ss_txt(char *, char *);
 /* COMMON WORD SUBSTITUTIONS */
 char cw_keys[222][50] = { /* single letter */
-	"_b_", "_d_", "_e_", "_f_", "_g_", "_h_", "_j_", "_k_", "_l_", "_m_", "_n_", "_o_", 
-	"_p_", "_q_", "_r_", "_s_", "_t_", "_u_", "_v_", "_w_", "_x_", "_y_", "_z_", 
+	"_t_", "_o_", "_s_", "_w_", "_p_", "_d_", "_n_", "_r_", "_y_", "_f_", "_l_", "_h_", 
+	"_b_", "_g_", "_m_", "_e_", "_v_", "_u_", "_j_", "_x_", "_k_", "_z_", "_q_", 
 	/* two-letter 1 */
-	"_bb_", "_bc_", "_bd_", "_bf_", "_bg_", "_bh_", "_bk_", "_bl_", "_bm_", "_bn_", "_bp_", 
-	"_bq_", "_br_", "_bs_", "_bt_", "_bv_", "_bw_", "_bx_", "_bz_", "_cb_", "_cc_", "_cd_", 
-	"_cf_", "_cg_", "_ch_", "_ck_", "_cl_", "_cm_", "_cn_", "_cp_", "_cq_", "_cr_", "_cs_", 
-	"_ct_", "_cv_", "_cw_", "_cx_", "_cz_", "_db_", "_dc_", "_dd_", "_df_", "_dg_", "_dh_", 
-	"_dk_", "_dl_", "_dm_", "_dn_", "_dp_", "_dq_", "_dr_", "_ds_", "_dt_", "_dv_", "_dw_", 
-	"_dx_", "_dz_", "_fb_", "_fc_", "_fd_", "_ff_", "_fg_", "_fh_", "_fk_", "_fl_", 
-	"_fm_", "_fn_", 
+	"_te_", "_ts_", "_tt_", "_td_", "_tn_", "_tr_", "_ty_", "_tf_", "_tl_", "_tg_", "_th_", 
+	"_ta_", "_tk_", "_tm_", "_tp_", "_tu_", "_tw_", "_tc_", "_ti_", "_ae_", "_ar_", "_ay_", 
+	"_af_", "_al_", "_ao_", "_ag_", "_ah_", "_aa_", "_ak_", "_ap_", "_au_", "_aw_", "_ac_", 
+	"_ai_", "_oe_", "_os_", "_ot_", "_od_", "_oy_", "_ol_", "_oo_", "_og_", "_ie_", "_id_", 
+	"_ir_", "_iy_", "_il_", "_io_", "_ig_", "_ih_", "_se_", "_ss_", "_st_", "_sd_", "_sn_", 
+	"_sr_", "_sy_", "_sf_", "_sl_", "_sg_", "_sh_", "_ws_", "_wt_", "_wd_", "_wn_", 
+	"_wr_", "_wy_", 
 	/* two-letter 2 */
-	"_fp_", "_fq_", "_fr_", "_fs_", "_ft_", "_fv_", "_fw_", "_fx_", "_fz_", "_gb_", 
-	"_gc_", "_gd_", "_gf_", "_gg_", "_gh_", "_gk_", "_gl_", "_gm_", "_gn_", "_gp_", 
-	"_gq_", "_gr_", "_gs_", "_gt_", "_gv_", "_gw_", "_gx_", "_gz_", "_hb_", "_hc_", 
-	"_hd_", "_hf_", "_hg_", "_hh_", "_hk_", "_hl_", "_hm_", "_hn_", "_hp_", 
-	"_hq_", "_hr_", "_hs_", "_ht_", "_hv_", "_hw_", "_hx_", "_hz_", "_kb_", "_kc_", 
-	"_kd_", "_kf_", 
+	"_wf_", "_wl_", "_wo_", "_wg_", "_wh_", "_ce_", "_cs_", "_ct_", "_cd_", "_cn_", 
+	"_cr_", "_cy_", "_cf_", "_cl_", "_co_", "_cg_", "_ch_", "_bs_", "_bt_", "_bd_", 
+	"_bb_", "_br_", "_bf_", "_bl_", "_bo_", "_bg_", "_pe_", "_ps_", "_pt_", "_pd_", 
+	"_pb_", "_pr_", "_py_", "_pf_", "_pl_", "_po_", "_pg_", "_hs_", "_ht_", 
+	"_hd_", "_hn_", "_hr_", "_hy_", "_hf_", "_hl_", "_ho_", "_hg_", "_fe_", "_fs_", 
+	"_ft_", "_fd_", 
 	/* NO-SPACE */
-	"`z", "`?", "`r", "`s", "`t", "`u", "`v", "`w", "`x", "`y", 
-	"`k", "`l", "`m", "`n", "`o", "`p", "`q", 
-	"`b", "`c", "`d", "`e", "`f", "`g", "`h", "`i", "`j", "!s", 
-	"!t", "!u", "!v", "!w", "!x", "!y", "!z", "`a", "!j", "!k", 
-	"!l", "!m", "!n", "!o", "!p", "!q", "!r", "!h", "!i", "`!", 
-	"?w", "?x", "?y", "?z", "!a", "!b", "!c", "!d", "!e", "!f", "!g", 
-	"?l", "?m", "?n", "?o", "?p", "?q", "?r", "?s", "?t", "?u", "?v", 
-	"?a", "?b", "?c", "?d", "?e", "?f", "?g", "?h", "?i", "?j", "?k"
+	"`e", "!e", "?e", "`t", "!t", "?t", "`a", "!a", "?a", "`o", "!o", "?o", "`i", "!i", "?i", 
+	"`n", "!n", "?n", "`s", "!s", "?s", "`h", "!h", "?h", "`r", "!r", "?r", "`d", "!d", "?d", 
+	"`l", "!l", "?l", "`c", "!c", "?c", "`u", "!u", "?u", "`m", "!m", "?m", "`w", "!w", "?w", 
+	"`f", "!f", "?f", "`g", "!g", "?g", "`y", "!y", "?y", "`p", "!p", "?p", "`b", "?b", "?b", 
+	"`v", "?v", "!v", "`k", "!k", "?k", "`j", "?j", "!j", "`x", "?x", "!x", "`q", "`q", "?`", 
+	"!?", "?!", "!`", "`?", "`!", 
 };
-char cw_word[222][50] = { /* single letter */
+char cw_word[222][50] = { /* single letter */ 
 	"_at_", "_as_", "_an_", "_be_", "_by_", "_do_", "_go_", "_in_", "_is_", "_it_", "_my_", "_of_", 
 	"_on_", "_or_", "_to_", "_up_", "_and_", "_the_", "_have_", "_that_", "_this_", "_with_", "_you_", 
 	/* two-letter 1 */
@@ -141,15 +139,14 @@ char cw_word[222][50] = { /* single letter */
 	"_person_", "_place_", "_point_", "_problem_", "_public_", "_right_", "_small_", "_thing_", "_world_", "_woman_", 
 	"_young_", "_would_", 
 	/* NO-SPACE */
-	"person", "different", "after", "other", "there", "group", "place", "point", "right", "thing", 
-	"hand", "high", "last", "long", "part", "tell", "tion", 
-	"then", "than", "well", "even", "able", "case", "call", "fact", "feel", 
-	"make", "most", "them", "over", "some", "time", "take", "work", "will", 
-	"that", "this", "with", "come", "back", "ent", "into", "know", "nter", 
-	"for", "ear", "ing", "end", "see", "she", "ask", "big", "bad", "eye", "man", 
-	"own", "old", "try", "her", "how", "now", "new", "out", "one", "our", "use", 
-	"way", "who", "its", "and", "not", "the", "you", "any", "all", "but", "can", 
-	"day", "get", "his"
+	"there", "tion", "then", "than", "well", "them", "some", "will", "that", "this", 
+	"with", "come", "back", "nter", "for", "ear", "different", "ent", "end", "see", 
+	"eye", "man", "use", "even", "able", "thing", "ing", "know", "now", "hand", 
+	"and", "make", "its", "not", "other", "the", "you", "any", "call", "all", "but", 
+	"can", "most", "group", "over", "time", "take", "work", "place", "point", "right", 
+	"into", "person", "high", "last", "long", "part", "tell", "she", "ask", "big", 
+	"bad", "after", "fact", "feel", "own", "old", "try", "her", "how", "new", "out", 
+	"one", "our", "case", "way", "who", "day", "get", "his",
 };
 /* GLOBAL VARIABLES */
 char ss_array_matrix[300][40][152], s_compress_storage[300][152], s_max_buffer[30000], ss_max_buffer[30000];
