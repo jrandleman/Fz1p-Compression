@@ -1,4 +1,4 @@
-# Zip_Text
+# Fzip && Zip_Text
 _Lossless Compression &amp; Encryption For Text Files!_
 ---------------------------------------
 **_ziptxt compression => txt <--> txt, with encryption: locally in textfile_**</br>
