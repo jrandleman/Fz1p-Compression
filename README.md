@@ -5,7 +5,10 @@ _Lossless Compression &amp; Encryption For Text Files!_
 **_ziptxt compression => txt <--> txt, with encryption: locally in textfile_**
 
 $ gcc -o fzip fzip.c</br>
-$ ./fzip textfilename.txt yourpassword (hide/show) (info)
+$ ./fzip textfilename.txt (hide/show)
+
+$ gcc -o ziptxt ziptxt.c</br>
+$ ./ziptxt textfilename.txt yourpassword (hide/show) (info)
 
 * Enter \<hide> to compress and encrypt your text file
 * Enter \<show> to decrypt and decompress text file
