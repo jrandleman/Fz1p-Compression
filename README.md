@@ -13,7 +13,7 @@ $ ./fzip textfilename.txt yourpassword (hide/show) (info)
   * _unique password per text file!_
   
 **===============================================================**<br/>
-**_COMPRESSION VIA REPLACED REPEATED SUBSTRINGS:_**<br/>
+**_ZIPTXT COMPRESSION VIA REPLACED REPEATED SUBSTRINGS:_**<br/>
 **===============================================================**<br/>
 **LENGTH:** 50, **STRING:** yo how are you howard hope your homework went well<br/>
 **LENGTH:** 25, **STRING:** AC DECDdBpErBmeworkFntFll<br/>
