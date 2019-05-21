@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
-#define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)],APPEND);})
+#define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)-4],APPEND);})
 #define RM_NXT_CH(S) ({memmove(S + 1, S + 2, strlen(S + 1));})
 #define NEED_TO_UPDATE_ARRS(IDX) (IDX != 0 && IDX % 12 == 0)
 #define ITER_NUM(N,X,Y) ((((N + X) / 2) * 3) - Y)
@@ -120,7 +120,7 @@ void HIDE_HASH_PACK_HANDLER(char arg1[], char *filename) {
 	/* READ STR FROM ARG1 FILE ARG */
 	char passed_str[30000];
 	read_passed_str(passed_str, arg1);
-	/* HASH & PACK SSKEY */
+	/* HASH & PACK TEXT */
 	int original_length = strlen(passed_str);
 	modify_str(passed_str, 1); /* prep passed_str for compression */
 	int PASSED_STR_TOTAL = strlen(passed_str), j_true[] = {1,0,1,1,0,1,0,1,1,0,1,1};
@@ -129,7 +129,7 @@ void HIDE_HASH_PACK_HANDLER(char arg1[], char *filename) {
 	unsigned char packed_uch[30000], passed_uch[30000];
 	init_compr_arr(packed_uch); /* init packed_uch with 0's to clear garbage memory for bitpacking */
 	hash_hide(PASSED_STR_TOTAL, passed_str, passed_uch);
-	for(int i = 0, j = 0; i < pack_shift_iterations; i++, j++) {
+	for(int i = 0, j = 0; i < pack_shift_iterations; i++, j++) { /* BIT-PACK TEXT */
 		if(NEED_TO_UPDATE_ARRS(i)) increment_idx_shift_arrs(&j, pack_ch_idx, unpack_uch_idx); /* UPDATE CHAR ACCESS IDXS */
 		if(j_true[j] == 1) { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] << bit_shift_nums[j]) & 255); }
 		else { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] >> bit_shift_nums[j]) & 255); }
@@ -138,7 +138,7 @@ void HIDE_HASH_PACK_HANDLER(char arg1[], char *filename) {
 	unsigned char trimmed_uch[PACKED_UCH_TOTAL + 1]; /* only as large as needed for packing */
 	memcpy(trimmed_uch, packed_uch, sizeof(unsigned char)*(PACKED_UCH_TOTAL + 1));
 	trimmed_uch[PACKED_UCH_TOTAL] = '\0';
-	/* WRITE PACKED HASHED SSKEYS TO FILE */
+	/* WRITE PACKED HASHED TEXT TO FILE */
 	unsigned short write_size = (unsigned short)PASSED_STR_TOTAL;
 	FILE *fp;
 	myAssert((fp = fopen(filename, "wb")), "\n\n(!!!) ERROR WRITING COMPRESSED TEXE TO BINARY FILE (!!!)\n\n");
@@ -156,7 +156,7 @@ void HIDE_HASH_PACK_HANDLER(char arg1[], char *filename) {
 	delete_original_file_option(arg1);
 }
 void SHOW_DEHASH_UNPACK_HANDLER(char *arg1, char *filename) {
-	/* READ PACKED HASHED SSKEYS FROM FILE */
+	/* READ PACKED HASHED TEXT FROM FILE */
 	char unpacked_str[30000];
 	init_decompr_arr(unpacked_str);
 	int PASSED_STR_TOTAL, read_char_total;
@@ -172,10 +172,10 @@ void SHOW_DEHASH_UNPACK_HANDLER(char *arg1, char *filename) {
 	fclose(fp);
 	printf("\nFILE REMOVED: %s\n", filename);
 	remove(filename);
-	/* UNPACK & DEHASH SSKEY */
+	/* UNPACK & DEHASH TEXT */
 	int unpack_shift_iterations = BITSHIFT_ITERATION_TOTAL(PASSED_STR_TOTAL), j_true[] = {1,0,1,1,0,1,0,1,1,0,1,1};
 	int pack_ch_idx[] = {0,0,1,1,1,2,2,3,3,3,4,4}, unpack_uch_idx[] = {0,1,1,2,3,3,4,4,5,6,6,7}, bit_shift_nums[] = {3,2,6,1,4,4,1,7,2,3,5,0};
-	for(int i = 0, j = 0; i < unpack_shift_iterations; i++, j++) { /* UNPACK SSKEY */
+	for(int i = 0, j = 0; i < unpack_shift_iterations; i++, j++) { /* BIT-UNPACK TEXT */
 		if(NEED_TO_UPDATE_ARRS(i)) increment_idx_shift_arrs(&j, pack_ch_idx, unpack_uch_idx); /* UPDATE CHAR ACCESS IDXS */
 		if(j_true[j] == 1) { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] >> bit_shift_nums[j]) & 31)); }
 		else { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] << bit_shift_nums[j]) & 31)); }
