@@ -2,7 +2,7 @@
 _Lossless Compression &amp; Encryption For Text Files!_
 ---------------------------------------
 **_ziptxt compression => txt <--> txt, with encryption: locally in textfile_**</br>
-**_fzip compression => txt <--> bin, more compression: via bit packing (same cmd syntax)_**
+**_fzip compression => txt <--> bin, more compression: via bit packing (same cmd syntax w/o password or info)_**
 
 $ gcc -o fzip fzip.c</br>
 $ ./fzip textfilename.txt yourpassword (hide/show) (info)
