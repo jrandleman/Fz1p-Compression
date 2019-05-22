@@ -199,8 +199,8 @@ void read_passed_str(char s[], char *arg1) {
 	FILE *fp; /* READ UNCOMPRESSED TEXT PASSED AS ARG1 FOR THE FIRST TIME */
 	myAssert((fp = fopen(arg1, "r")), "\n\n(!!!) ERROR READING UNCOMPRESSED TEXT FILE (!!!)\n\n");
 	char buff[300];
-	int ret, count = 0;
-	while((ret = fscanf(fp, "%s ", buff)) > 0) {
+	int count = 0;
+	while(fscanf(fp, "%s ", buff) > 0) {
 		sprintf(&s[count], "%s ", buff);
 		count += (strlen(buff) + 1);
 	}
