@@ -9,15 +9,13 @@
 #include <stdio.h>
 #include <ctype.h>
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)-4],APPEND);})
-#define RM_NXT_CH(S) ({memmove(S + 1, S + 2, strlen(S + 1));})
 #define NEED_TO_UPDATE_ARRS(IDX) (IDX != 0 && IDX % 12 == 0)
 #define ITER_NUM(N,X,Y) ((((N + X) / 2) * 3) - Y)
 #define MULT_8(N) (N % 8 == 0)
 #define M8D(N) (N % 8)
 #define SHIFT_CHAR_TOTAL(X) ((5*(X/8))+(M8D(X)>0)+(M8D(X)>1)+(M8D(X)>3)+(M8D(X)>4)+(M8D(X)>6))
-#define NUM(CH) ((CH) >= '0' && (CH) <= '9')
 #define IS_LOW_CH(ch_c_inst) ((ch_c_inst) >= 'a' && (ch_c_inst) <= 'z')
-#define DASH_PUNC(C_CH) (C_CH==':'||C_CH==';'||C_CH=='/'||C_CH==','||C_CH=='['||C_CH==']'||C_CH=='{'||C_CH=='}'||C_CH=='('||C_CH==')'||C_CH=='_')
+#define DASH_PUNC(CH) (CH==':'||CH==';'||CH=='/'||CH==','||CH=='['||CH==']'||CH=='{'||CH=='}'||CH=='('||CH==')'||CH=='_')
 /* CUSTOM ASSERT FUNCTIONS */
 void myAssert(void *condition, char message[]){if(condition==NULL){printf("%s",message);exit(0);}}
 /* MAIN HIDE / SHOW HANDLERS */
@@ -39,15 +37,13 @@ void init_decompr_arr(char []);
 void init_compr_arr(unsigned char []);
 void increment_idx_shift_arrs(int *, int [], int []);
 /* STRING EDITING FUNCITONS */
-void char_after_here(char *, char);
 void modify_str(char *, int);
 void lowify_str(char []);
 /* COMMON WORD SUBSTITUTIONS */
 void splice_str(char *, char *, int);
 void delta_sub_words(char *, char [][50], char [][50]);
 /* COMMON WORD SUBSTITUTIONS */
-int cw_idxs[224];
-char cw_keys[222][50] = { /* single letter */
+char cw_keys[232][50] = { /* single letter */
 	"_t_", "_o_", "_s_", "_w_", "_p_", "_d_", "_n_", "_r_", "_y_", "_f_", "_l_", "_h_", 
 	"_b_", "_g_", "_m_", "_e_", "_v_", "_u_", "_j_", "_x_", "_k_", "_z_", "_q_", 
 	/* two-letter 1 */
@@ -70,10 +66,12 @@ char cw_keys[222][50] = { /* single letter */
 	".n", "!n", "?n", ".s", "!s", "?s", ".h", "!h", "?h", ".r", "!r", "?r", ".d", "!d", "?d", 
 	".l", "!l", "?l", ".c", "!c", "?c", ".u", "!u", "?u", ".m", "!m", "?m", ".w", "!w", "?w", 
 	".f", "!f", "?f", ".g", "!g", "?g", ".y", "!y", "?y", ".p", "!p", "?p", ".b", "!b", "?b", 
-	".v", "?v", "!v", ".k", "!k", "?k", ".j", "?j", "!j", ".x", "?x", "!x", ".z", ".q", "?.", 
-	"!?", "?!", "!.", ".?", ".!", 
+	".v", "?v", "!v", ".k", "!k", "?k", ".j", "?j", "!j", ".x", "?x", "!x", ".z", ".q", "?.",
+	"!?", "?!", "!.", ".?", ".!",
+	/* NUMBERS */
+	"_jq_", "_jw_", "_jx_", "_jy_", "_jz_", "_jt_", "_js_", "_jp_", "_jn_", "_jm_",
 };
-char cw_word[222][50] = { /* single letter */ 
+char cw_word[232][50] = { /* single letter */
 	"_at_", "_as_", "_an_", "_be_", "_by_", "_do_", "_are_", "_in_", "_is_", "_it_", "_my_", "_of_", 
 	"_on_", "_or_", "_to_", "_and_", "_the_", "_have_", "_that_", "_this_", "_with_", "_you_", "_up_",
 	/* two-letter 1 */
@@ -100,6 +98,8 @@ char cw_word[222][50] = { /* single letter */
 	"into", "person", "high", "last", "long", "part", "tell", "she", "ask", "big", 
 	"bad", "after", "fact", "feel", "own", "old", "try", "her", "how", "new", "out", 
 	"one", "our", "case", "way", "who", "day", "get", "his",
+	/* NUMBERS */
+	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
 };
 int main(int argc, char *argv[]) { 
 	if(argc < 3) err_info();
@@ -220,8 +220,6 @@ void delete_original_file_option(char *arg1) {
 void err_info() {
 	printf("\n============================= INVALID EXECUTION! =============================\n");
 	printf("$ gcc -o fzip fzip.c\n$ ./fzip textfile.txt hide/show\n");
-	printf("==============================================================================");
-	printf("\n=> FILE.TXT FORMAT: AVOID NUMBERS!\n");
 	printf("==============================================================================\n\n");
 	exit(0);
 }
@@ -268,13 +266,8 @@ void increment_idx_shift_arrs(int *j, int pack_ch_idx[], int unpack_uch_idx[]) {
 /******************************************************************************
 * STRING EDITING FUNCITONS
 ******************************************************************************/
-void char_after_here(char *s, char c) {
-	char t[30000];
-	sprintf(t, "%c%s", c, s + 1);
-	sprintf(s + 1, "%s", t);
-}
 void modify_str(char *s, int hide_flag) { 
-	char post_q_num_ref[] = "opqrtvwxyz", *p = s, space = ' ', under_s = '_';
+	char *p = s, space = ' ', under_s = '_';
 	if(hide_flag == 1) { /* HIDE - lowercase + underscores for spaces + punc subs */
 		while(*p != '\0') {
 			*p = tolower(*p); /* make lowercase */
@@ -284,9 +277,6 @@ void modify_str(char *s, int hide_flag) {
 				*p = '-';
 			} else if(*p == '"'){ /* double quotes => single quotes (easier compr if u know what I'm talking aboot) */
 				*p = '\'';
-			} else if(NUM(*p)) { /* if a number character */
-				char_after_here(p, post_q_num_ref[(*p - 48)]); /* hash number character to a corresponding post-q representative */
-				*p ++ = 'q';
 			} else if(*p == '\t' || *p == '\n') { /* replace tabs and newlines with '_' */
 				*p = under_s;
 			}
@@ -304,10 +294,6 @@ void modify_str(char *s, int hide_flag) {
 				*p = ',';
 			} else if(*p=='.' && *(p+1) == '_' && IS_LOW_CH(*(p+2))) {
 				*(p+2) -= 32; /* capitalize letters after periods */
-			} else if((*p == 'q' || *p == 'Q') && *(p + 1) != 'u') { /* handle potential number re-substitutions */
-				int i = 0;
-				for(; i < 10; i++) if(post_q_num_ref[i] == *(p + 1)) break;
-				if(i != 10) { *p = (i + 48); RM_NXT_CH(p); }
 			}
 			p++;
 		}
@@ -327,7 +313,7 @@ void splice_str(char *s, char *sub, int splice_len) {
 }
 void delta_sub_words(char *s, char remove[][50], char insert[][50]) {
 	int count = 0, found, word_len, i, j;
-	for(i = 0; i < 224; i++) {
+	for(i = 0; i < 232; i++) {
 		char *p = s;
 		word_len = strlen(remove[i]);
 		found = 0;
