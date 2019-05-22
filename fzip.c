@@ -1,9 +1,9 @@
 /* AUTHOR: JORDAN RANDLEMAN */
-/*******************************************************************
-* |===\ /==//  ==== /|==\\       //==\ //==\\ /\\  //\ /|==\\ ||\\ *
-* |==     //    ||  ||==// +===+ ||    ||  || ||\\//|| ||==// ||// *
-* ||     //==/ ==== ||           \\==/ \\==// || \/ || ||     ||\\ *
-*******************************************************************/
+/********************************************************************
+* |===\ /==//  ==== /|==\\       //==\ //==\\ /\\  //\ /|==\\ ||^\\ *
+* |==     //    ||  ||==// +===+ ||    ||  || ||\\//|| ||==// ||_// *
+* ||     //==/ ==== ||           \\==/ \\==// || \/ || ||     || \\ *
+********************************************************************/
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -15,7 +15,9 @@
 #define M8D(N) (N % 8)
 #define SHIFT_CHAR_TOTAL(X) ((5*(X/8))+(M8D(X)>0)+(M8D(X)>1)+(M8D(X)>3)+(M8D(X)>4)+(M8D(X)>6))
 #define IS_LOW_CH(ch_c_inst) ((ch_c_inst) >= 'a' && (ch_c_inst) <= 'z')
-#define DASH_PUNC(CH) (CH==':'||CH==';'||CH=='/'||CH==','||CH=='['||CH==']'||CH=='{'||CH=='}'||CH=='('||CH==')'||CH=='_')
+#define DASH_PUNC(CH) (CH==':'||CH==';'||CH=='/'||CH==','||CH=='_')
+#define PAREN_FRNT(CH) (CH=='['||CH=='{')
+#define PAREN_BACK(CH) (CH==']'||CH=='}')
 /* CUSTOM ASSERT FUNCTIONS */
 void myAssert(void *condition, char message[]){if(condition==NULL){printf("%s",message);exit(0);}}
 /* MAIN HIDE / SHOW HANDLERS */
@@ -43,7 +45,7 @@ void lowify_str(char []);
 void splice_str(char *, char *, int);
 void delta_sub_words(char *, char [][50], char [][50]);
 /* COMMON WORD SUBSTITUTIONS */
-char cw_keys[232][50] = { /* single letter */
+char cw_keys[236][50] = { /* single letter */
 	"_t_", "_o_", "_s_", "_w_", "_p_", "_d_", "_n_", "_r_", "_y_", "_f_", "_l_", "_h_", 
 	"_b_", "_g_", "_m_", "_e_", "_v_", "_u_", "_j_", "_x_", "_k_", "_z_", "_q_", 
 	/* two-letter 1 */
@@ -68,10 +70,10 @@ char cw_keys[232][50] = { /* single letter */
 	".f", "!f", "?f", ".g", "!g", "?g", ".y", "!y", "?y", ".p", "!p", "?p", ".b", "!b", "?b", 
 	".v", "?v", "!v", ".k", "!k", "?k", ".j", "?j", "!j", ".x", "?x", "!x", ".z", ".q", "?.",
 	"!?", "?!", "!.", ".?", ".!",
-	/* NUMBERS */
-	"_jq_", "_jw_", "_jx_", "_jy_", "_jz_", "_jt_", "_js_", "_jp_", "_jn_", "_jm_",
+	/* NUMBERS & PAREN */
+	"_jq_", "_jw_", "_jx_", "_jy_", "_jz_", "_jt_", "_js_", "_jp_", "_jn_", "_jm_", "_jb_", "_jc_", "_jd_", "_je_",
 };
-char cw_word[232][50] = { /* single letter */
+char cw_word[236][50] = { /* single letter */
 	"_at_", "_as_", "_an_", "_be_", "_by_", "_do_", "_are_", "_in_", "_is_", "_it_", "_my_", "_of_", 
 	"_on_", "_or_", "_to_", "_and_", "_the_", "_have_", "_that_", "_this_", "_with_", "_you_", "_up_",
 	/* two-letter 1 */
@@ -98,8 +100,8 @@ char cw_word[232][50] = { /* single letter */
 	"into", "person", "high", "last", "long", "part", "tell", "she", "ask", "big", 
 	"bad", "after", "fact", "feel", "own", "old", "try", "her", "how", "new", "out", 
 	"one", "our", "case", "way", "who", "day", "get", "his",
-	/* NUMBERS */
-	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+	/* NUMBERS & PAREN */
+	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "(", ")", "\n", "\t",
 };
 int main(int argc, char *argv[]) { 
 	if(argc < 3) err_info();
@@ -275,10 +277,12 @@ void modify_str(char *s, int hide_flag) {
 				*p = under_s;
 			} else if(DASH_PUNC(*p)) { /* replace certain punctuation with a dash */
 				*p = '-';
+			} else if(PAREN_FRNT(*p)) {
+				*p = '(';
+			} else if(PAREN_BACK(*p)) {
+				*p = ')';
 			} else if(*p == '"'){ /* double quotes => single quotes (easier compr if u know what I'm talking aboot) */
 				*p = '\'';
-			} else if(*p == '\t' || *p == '\n') { /* replace tabs and newlines with '_' */
-				*p = under_s;
 			}
 			p++;
 		}
@@ -313,7 +317,7 @@ void splice_str(char *s, char *sub, int splice_len) {
 }
 void delta_sub_words(char *s, char remove[][50], char insert[][50]) {
 	int count = 0, found, word_len, i, j;
-	for(i = 0; i < 232; i++) {
+	for(i = 0; i < 236; i++) {
 		char *p = s;
 		word_len = strlen(remove[i]);
 		found = 0;
