@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
-#define MAX_CH 30000
+#define MAX_CH 1000000
 #define COMPR_RATIO(OLD,NEW) (100*(1.000000 - ((OLD)/(NEW))))
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)-4],APPEND);})
 #define NEED_TO_UPDATE_ARRS(IDX) (IDX != 0 && IDX % 12 == 0)
@@ -17,9 +17,6 @@
 #define M8D(N) (N % 8)
 #define SHIFT_CHAR_TOTAL(X) ((5*(X/8))+(M8D(X)>0)+(M8D(X)>1)+(M8D(X)>3)+(M8D(X)>4)+(M8D(X)>6))
 #define IS_LOW_CH(ch_c_inst) ((ch_c_inst) >= 'a' && (ch_c_inst) <= 'z')
-#define DASH_PUNC(CH) (CH==';'||CH=='/'||CH==','||CH=='_')
-#define PAREN_FRNT(CH) (CH=='['||CH=='{')
-#define PAREN_BACK(CH) (CH==']'||CH=='}')
 /* CUSTOM ASSERT FUNCTIONS */
 void myAssert(void *condition, char message[]){if(condition==NULL){printf("%s",message);exit(0);}}
 /* MAIN HIDE / SHOW HANDLERS */
@@ -47,7 +44,7 @@ void lowify_str(char []);
 void splice_str(char *, char *, int);
 void delta_sub_words(char *, char [][50], char [][50]);
 /* COMMON WORD SUBSTITUTIONS */
-#define CW_LEN 237
+#define CW_LEN 239
 char cw_keys[CW_LEN][50] = { /* single letter */
 	"_t_", "_o_", "_s_", "_w_", "_p_", "_d_", "_n_", "_r_", "_y_", "_f_", "_l_", "_h_", 
 	"_b_", "_g_", "_m_", "_e_", "_v_", "_u_", "_j_", "_x_", "_k_", "_z_", "_q_", 
@@ -75,7 +72,7 @@ char cw_keys[CW_LEN][50] = { /* single letter */
 	"!?", "?!", "!.", ".?", ".!",
 	/* NUMBERS & PUNCTUATION */
 	"_jq_", "_jw_", "_jx_", "_jy_", "_jz_", "_jt_", "_js_", "_jp_", "_jn_", "_jm_", 
-	"_jb_", "_jc_", "_jd_", "_je_", "--"
+	"_jb_", "_jc_", "_jd_", "?-", "--", ".-", "!-"
 };
 char cw_word[CW_LEN][50] = { /* single letter */
 	"_at_", "_as_", "_an_", "_be_", "_by_", "_do_", "_are_", "_in_", "_is_", "_it_", "_my_", "_of_", 
@@ -106,7 +103,7 @@ char cw_word[CW_LEN][50] = { /* single letter */
 	"one", "our", "case", "way", "who", "day", "get", "his",
 	/* NUMBERS & PUNCTUATION */
 	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", 
-	"(", ")", "\n", "\t", ":"
+	"(", ")", "\t", "\n", ":", ";", "/"
 };
 int zip_info = 0; /* output compresion/decompresion progress */
 int main(int argc, char *argv[]) { 
@@ -216,13 +213,12 @@ void SHOW_DEHASH_UNPACK_HANDLER(char *arg1, char *filename) {
 void read_passed_str(char s[], char *arg1) {
 	FILE *fp; /* READ UNCOMPRESSED TEXT PASSED AS ARG1 FOR THE FIRST TIME */
 	myAssert((fp = fopen(arg1, "r")), "\n\n(!!!) ERROR READING UNCOMPRESSED TEXT FILE (!!!)\n\n");
-	char buff[300];
+	char buff[500];
 	int count = 0;
-	while(fscanf(fp, "%s ", buff) > 0) {
-		sprintf(&s[count], "%s ", buff);
-		count += (strlen(buff) + 1);
+	while(fgets(buff, 500, fp) != NULL) {
+		strcpy(&s[count], buff);
+		count += (strlen(buff));
 	}
-	s[strlen(s) - 1] = '\0';
 	fclose(fp);
 }
 void delete_original_file_option(char *arg1) {
@@ -293,11 +289,11 @@ void modify_str(char *s, int hide_flag) {
 			*p = tolower(*p); /* make lowercase */
 			if(*p == space) { /* ' ' => '_' */
 				*p = under_s;
-			} else if(DASH_PUNC(*p)) { /* replace certain punctuation with a dash */
+			} else if(*p == ','|| *p == '_') { /* replace certain punctuation with a dash */
 				*p = '-';
-			} else if(PAREN_FRNT(*p)) { /* parenthesis substitutions */
+			} else if(*p == '['|| *p == '{') { /* parenthesis substitutions */
 				*p = '(';
-			} else if(PAREN_BACK(*p)) { /* parenthesis substitutions */
+			} else if(*p == ']'|| *p == '}') { /* parenthesis substitutions */
 				*p = ')';
 			} else if(*p == '"'){ /* double quotes => single quotes */
 				*p = '\'';
@@ -316,6 +312,8 @@ void modify_str(char *s, int hide_flag) {
 				*p = ',';
 			} else if(*p=='.' && *(p+1) == '_' && IS_LOW_CH(*(p+2))) {
 				*(p+2) -= 32; /* capitalize letters after periods */
+			} else if(*p=='\n' && IS_LOW_CH(*(p+1))) {
+				*(p+1) -= 32; /* capitalize letters after newlines */
 			} else if(*p == '\'' && (*(p - 1) == space || *(p + 1) == under_s)) { /* sub double quotes back in */
 				*p = '"';
 			}
