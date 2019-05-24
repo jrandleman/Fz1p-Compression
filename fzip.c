@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #define MAX_CH 1000000
-#define COMPR_RATIO(OLD,NEW) (100*(1.000000 - ((OLD)/(NEW))))
+#define COMPR_RATIO(NEW,OLD) (100*(1.000000 - ((NEW)/(OLD))))
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)-4],APPEND);})
 #define NEED_TO_UPDATE_ARRS(IDX) (IDX != 0 && IDX % 12 == 0)
 #define ITER_NUM(N,X,Y) ((((N + X) / 2) * 3) - Y)
@@ -44,8 +44,11 @@ void lowify_str(char []);
 void splice_str(char *, char *, int);
 void delta_sub_words(char *, char [][50], char [][50]);
 /* COMMON WORD SUBSTITUTIONS */
-#define CW_LEN 239
-char cw_keys[CW_LEN][50] = { /* single letter */
+#define CW_LEN 255
+char cw_keys[CW_LEN][50] = { /* roman numerals */
+	"_2_", "_3_", "_4_", "_5_", "_6_", "_7_", "_8_", "_9_",
+	"_2\n", "_3\n", "_4\n", "_5\n", "_6\n", "_7\n", "_8\n", "_9\n",
+	/* single letter */
 	"_t_", "_o_", "_s_", "_w_", "_p_", "_d_", "_n_", "_r_", "_y_", "_f_", "_l_", "_h_", 
 	"_b_", "_g_", "_m_", "_e_", "_v_", "_u_", "_j_", "_x_", "_k_", "_z_", "_q_", 
 	/* two-letter 1 */
@@ -55,14 +58,14 @@ char cw_keys[CW_LEN][50] = { /* single letter */
 	"_ai_", "_oe_", "_os_", "_ot_", "_od_", "_oy_", "_ol_", "_oo_", "_og_", "_ie_", "_id_", 
 	"_ir_", "_iy_", "_il_", "_io_", "_ig_", "_ih_", "_se_", "_ss_", "_st_", "_sd_", "_sn_", 
 	"_sr_", "_sy_", "_sf_", "_sl_", "_sg_", "_sh_", "_ws_", "_wt_", "_wd_", "_wn_", 
-	"_wr_", "_wy_", 
+	"_wr_", "_wy_",
 	/* two-letter 2 */
 	"_wf_", "_wl_", "_wo_", "_wg_", "_wh_", "_ce_", "_cs_", "_ct_", "_cd_", "_cn_", 
 	"_cr_", "_cy_", "_cf_", "_cl_", "_co_", "_cg_", "_ch_", "_bs_", "_bt_", "_bd_", 
 	"_bb_", "_br_", "_bf_", "_bl_", "_bo_", "_bg_", "_pe_", "_ps_", "_pt_", "_pd_", 
 	"_pb_", "_pr_", "_py_", "_pf_", "_pl_", "_po_", "_pg_", "_hs_", "_ht_", 
 	"_hd_", "_hn_", "_hr_", "_hy_", "_hf_", "_hl_", "_ho_", "_hg_", "_fe_", "_fs_", 
-	"_ft_", "_fd_", 
+	"_ft_", "_fd_",
 	/* NO-SPACE */
 	".e", "!e", "?e", ".t", "!t", "?t", ".a", "!a", "?a", ".o", "!o", "?o", ".i", "!i", "?i", 
 	".n", "!n", "?n", ".s", "!s", "?s", ".h", "!h", "?h", ".r", "!r", "?r", ".d", "!d", "?d", 
@@ -71,10 +74,13 @@ char cw_keys[CW_LEN][50] = { /* single letter */
 	".v", "?v", "!v", ".k", "!k", "?k", ".j", "?j", "!j", ".x", "?x", "!x", ".z", ".q", "?.",
 	"!?", "?!", "!.", ".?", ".!",
 	/* NUMBERS & PUNCTUATION */
-	"_jq_", "_jw_", "_jx_", "_jy_", "_jz_", "_jt_", "_js_", "_jp_", "_jn_", "_jm_", 
+	"_jq_", "_jw_", "_jx_", "_jy_", "_jz_", "_jt_", "_js_", "_jp_", "_jn_", "_jm_",
 	"_jb_", "_jc_", "_jd_", "?-", "--", ".-", "!-"
 };
-char cw_word[CW_LEN][50] = { /* single letter */
+char cw_word[CW_LEN][50] = { /* roman numerals */
+	"_ii_", "_iii_", "_iv_", "_v_", "_vi_", "_vii_", "_iix_", "_ix_",
+	"_ii\n", "_iii\n", "_iv\n", "_v\n", "_vi\n", "_vii\n", "_iix\n", "_ix\n",
+	/* single letter */
 	"_at_", "_as_", "_an_", "_be_", "_by_", "_do_", "_are_", "_in_", "_is_", "_it_", "_my_", "_of_", 
 	"_on_", "_or_", "_to_", "_and_", "_the_", "_have_", "_that_", "_this_", "_with_", "_you_", "_up_",
 	/* two-letter 1 */
@@ -99,14 +105,14 @@ char cw_word[CW_LEN][50] = { /* single letter */
 	"and", "make", "its", "not", "other", "the", "you", "any", "call", "all", "but", 
 	"can", "most", "group", "over", "time", "take", "work", "place", "point", "right", 
 	"into", "person", "high", "last", "long", "part", "tell", "she", "ask", "big", 
-	"bad", "after", "fact", "feel", "own", "old", "try", "her", "how", "new", "out", 
+	"bad", "after", "fact", "feel", "own", "ere", "try", "her", "how", "new", "out", 
 	"one", "our", "case", "way", "who", "day", "get", "his",
 	/* NUMBERS & PUNCTUATION */
 	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", 
 	"(", ")", "\t", "\n", ":", ";", "/"
 };
 int zip_info = 0; /* output compresion/decompresion progress */
-int main(int argc, char *argv[]) { 
+int main(int argc, char *argv[]) {
 	if(argc < 3) err_info();
 	char *action = argv[2], filename[75];
 	lowify_str(action);
@@ -307,11 +313,11 @@ void modify_str(char *s, int hide_flag) {
 		while(*p != '\0') {
 			if(*p == under_s) { /* '_' => ' ' */
 				*p = space;
-				if((*(p+1)=='c' || *(p+1)=='i') && *(p+2)==under_s) *(p+1) -= 32; /* capitalize ' I ' && ' C ' */
+				if((*(p+1)=='c' || *(p+1)=='i') && (*(p+2)==under_s || *(p+2)=='\n')) *(p+1) -= 32; /* capitalize ' I ' && ' C ' */
 			} else if(*p == '-' && (*(p + 1) == '_' || *(p + 1) == '\'') && *(p - 1) != space) { /* comma -_ => ,_ */
 				*p = ',';
-			} else if(*p=='.' && *(p+1) == '_' && IS_LOW_CH(*(p+2))) {
-				*(p+2) -= 32; /* capitalize letters after periods */
+			} else if((*p=='.' || *p=='!' || *p=='?') && *(p+1) == '_' && IS_LOW_CH(*(p+2))) {
+				*(p+2) -= 32; /* capitalize letters after periods, exclamations, and question marks */
 			} else if(*p=='\n' && IS_LOW_CH(*(p+1))) {
 				*(p+1) -= 32; /* capitalize letters after newlines */
 			} else if(*p == '\'' && (*(p - 1) == space || *(p + 1) == under_s)) { /* sub double quotes back in */
@@ -329,7 +335,7 @@ void lowify_str(char s[]) {
 * COMMON WORD SUBSTITUTION FUNCTIONS
 ******************************************************************************/
 void splice_str(char *s, char *sub, int splice_len) {
-	char temp[strlen(sub) + strlen(s + splice_len) + 1];
+	char temp[MAX_CH];
 	sprintf(temp, "%s%s", sub, s + splice_len);
 	strcpy(s, temp);
 }
