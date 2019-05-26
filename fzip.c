@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #define MAX_CH 1000000
-#define COMPR_RATIO(NEW,OLD) (100*(1.000000 - ((NEW)/(OLD))))
+#define COMPR_RATIO(NEW,OLD) (100*(1.000000 - (((float)NEW)/((float)OLD))))
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)-4],APPEND);})
 #define NEED_TO_UPDATE_ARRS(IDX) (IDX != 0 && IDX % 12 == 0)
 #define ITER_NUM(N,X,Y) ((((N + X) / 2) * 3) - Y)
@@ -17,6 +17,10 @@
 #define M8D(N) (N % 8)
 #define SHIFT_CHAR_TOTAL(X) ((5*(X/8))+(M8D(X)>0)+(M8D(X)>1)+(M8D(X)>3)+(M8D(X)>4)+(M8D(X)>6))
 #define IS_LOW_CH(ch_c_inst) ((ch_c_inst) >= 'a' && (ch_c_inst) <= 'z')
+#define IS_CAP_CH(ch_c_inst) ((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z')
+#define IS_ALF_CH(ch_c_inst) (IS_CAP_CH((ch_c_inst)) || IS_LOW_CH((ch_c_inst)))
+#define NOT_PUNC(ch_c_inst) ((ch_c_inst) != '.' && (ch_c_inst) != '!' && (ch_c_inst) != '?')
+#define VALID_CAP(W,X,Y,Z) ((W) == ' ' && NOT_PUNC((X)) && (Y) !=' ' && (IS_CAP_CH((Z)) || (!IS_ALF_CH((Z)) && IS_CAP_CH((Y)))))
 /* CUSTOM ASSERT FUNCTIONS */
 void myAssert(void *condition, char message[]){if(condition==NULL){printf("%s",message);exit(0);}}
 /* MAIN HIDE / SHOW HANDLERS */
@@ -42,7 +46,13 @@ void modify_str(char *, int);
 void lowify_str(char []);
 /* COMMON WORD SUBSTITUTIONS */
 void splice_str(char *, char *, int);
-void delta_sub_words(char *, char [][50], char [][50]);
+void delta_sub_common_words(char *, char [][50], char [][50]);
+/* CAPITAL WORD INDEX STORAGE */
+void delta_sub_capital_letters(char [], int);
+typedef struct capitalized_words {
+	unsigned short cap_idxs[MAX_CH], length;
+} CAP_WORD;
+CAP_WORD caps;
 /* COMMON WORD SUBSTITUTIONS */
 #define CW_LEN 255
 char cw_keys[CW_LEN][50] = { /* roman numerals */
@@ -139,7 +149,7 @@ void HIDE_HASH_PACK_HANDLER(char arg1[], char *filename) {
 	int original_length = strlen(passed_str);
 	modify_str(passed_str, 1); /* prep passed_str for compression */
 	int cw_tot = original_length - strlen(passed_str), cw_size = strlen(passed_str);
-	float cw_ratio = COMPR_RATIO((float)(strlen(passed_str)),(float)original_length);
+	float cw_ratio = COMPR_RATIO(strlen(passed_str), original_length);
 	if(zip_info == 1) printf("\nCommon Words/Phrases Compressed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", cw_tot, cw_ratio, passed_str);
 	/* HASH & PACK TEXT */
 	int PASSED_STR_TOTAL = strlen(passed_str), j_true[] = {1,0,1,1,0,1,0,1,1,0,1,1};
@@ -158,34 +168,38 @@ void HIDE_HASH_PACK_HANDLER(char arg1[], char *filename) {
 	memcpy(trimmed_uch, packed_uch, sizeof(unsigned char)*(PACKED_UCH_TOTAL + 1));
 	trimmed_uch[PACKED_UCH_TOTAL] = '\0';
 	/* WRITE PACKED HASHED TEXT TO FILE */
-	unsigned short write_size = (unsigned short)PASSED_STR_TOTAL;
+	unsigned short write_size = (unsigned short)PASSED_STR_TOTAL, cap_len = caps.length;
 	FILE *fp;
 	myAssert((fp = fopen(filename, "wb")), "\n\n(!!!) ERROR WRITING COMPRESSED TEXE TO BINARY FILE (!!!)\n\n");
+	fwrite(&cap_len, sizeof(unsigned short), 1, fp); /* write capitals length */
+	fwrite(caps.cap_idxs, sizeof(unsigned short), cap_len, fp); /* write capitals array */
 	fwrite(&write_size, sizeof(unsigned short), 1, fp);
 	fwrite(trimmed_uch, sizeof(unsigned char), PACKED_UCH_TOTAL, fp);
 	fclose(fp);
-	int pack_tot = cw_size - PACKED_UCH_TOTAL;
-	float pack_ratio = COMPR_RATIO((float)PACKED_UCH_TOTAL,(float)cw_size);
-	if(zip_info == 1) printf("\nBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", pack_tot, pack_ratio,trimmed_uch);
-	printf("\n>>> SIZE: %d - FILE CREATED: %s\n", (PACKED_UCH_TOTAL + 2), filename);
+	int pack_tot = cw_size - PACKED_UCH_TOTAL, compr_bytes = 4+PACKED_UCH_TOTAL+(2*cap_len); /* 4+ for compr&cap lengths ushorts & cap array in front */
+	float pack_ratio = COMPR_RATIO(PACKED_UCH_TOTAL, cw_size);
+	if(zip_info == 1) printf("\nBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", pack_tot, pack_ratio, trimmed_uch);
+	printf("\n>>> SIZE: %d - FILE CREATED: %s\n", compr_bytes, filename);
 	/* OUPUT COMPRESSION RESULTS */
-	float total_saved_bytes_ratio = COMPR_RATIO((float)(2+PACKED_UCH_TOTAL),(float)original_length); /* 2+ for compression length ushort in front */
+	float total_saved_bytes_ratio = COMPR_RATIO(compr_bytes, original_length); 
 	printf("\n==============================================================================");
 	printf("\n%s ==COMPRESS=> %s\n", arg1, filename);
-	printf(">> BYTES => UNCOMPRESSED: %d, COMPRESSED: %d, COMPRESSION RATE: %.2f%%\n", original_length, (2+PACKED_UCH_TOTAL), total_saved_bytes_ratio);
+	printf(">> BYTES => UNCOMPRESSED: %d, COMPRESSED: %d, COMPRESSION RATE: %.2f%%\n", original_length, compr_bytes, total_saved_bytes_ratio);
 	printf("==============================================================================\n\n");
 	delete_original_file_option(arg1);
 }
 void SHOW_DEHASH_UNPACK_HANDLER(char *arg1, char *filename) {
 	/* READ PACKED HASHED TEXT FROM FILE */
 	char unpacked_str[MAX_CH];
-	init_decompr_arr(unpacked_str);
 	int PASSED_STR_TOTAL, read_char_total;
 	unsigned char packed_uch[MAX_CH], unpacked_uch[MAX_CH];
+	unsigned short read_size, cap_len;
+	init_decompr_arr(unpacked_str); /* init unpacked_str with 0's to clear garbage memory for bitpacking */
 	init_compr_arr(unpacked_uch); /* init unpacked_uch with 0's to clear garbage memory for bitpacking */
-	unsigned short read_size;
 	FILE *fp;
 	myAssert((fp = fopen(filename, "rb")), "\n\n(!!!) ERROR READING COMPRESSED TEXT FROM BINARY FILE (!!!)\n\n");
+	fread(&cap_len, sizeof(unsigned short), 1, fp); /* read capitals length */
+	fread(caps.cap_idxs, sizeof(unsigned short), cap_len, fp); /* read capitals array */
 	fread(&read_size, sizeof(unsigned short), 1, fp);
 	PASSED_STR_TOTAL = (int)read_size;
 	read_char_total = SHIFT_CHAR_TOTAL(read_size);
@@ -256,7 +270,7 @@ void dehash_show(int len, char unpacked_str[], unsigned char unpacked_uch[]) {
 }
 unsigned char hide_hash_value(char c) { /* lowercase . ' _ - ! ? */
 	unsigned char ch = (unsigned char)c, from[] = {'.','\'','_','-','!','?'}, to[] = {26,27,28,29,30,31};
-	if(ch >= 'a' && ch <= 'z') return ch - 'a'; /* 'a' => 0, 'z' => 25 */
+	if(IS_LOW_CH(ch)) return ch - 'a'; /* 'a' => 0, 'z' => 25 */
 	for(int i = 0; i < 6; i++) if(ch == from[i]) return to[i];
 	return 0;
 }
@@ -291,6 +305,7 @@ void increment_idx_shift_arrs(int *j, int pack_ch_idx[], int unpack_uch_idx[]) {
 void modify_str(char *s, int hide_flag) { 
 	char *p = s, space = ' ', under_s = '_';
 	if(hide_flag == 1) { /* HIDE - lowercase + underscores for spaces + punc subs */
+		delta_sub_capital_letters(s, 1);
 		while(*p != '\0') {
 			*p = tolower(*p); /* make lowercase */
 			if(*p == space) { /* ' ' => '_' */
@@ -301,14 +316,14 @@ void modify_str(char *s, int hide_flag) {
 				*p = '(';
 			} else if(*p == ']'|| *p == '}') { /* parenthesis substitutions */
 				*p = ')';
-			} else if(*p == '"'){ /* double quotes => single quotes */
+			} else if(*p == '"') { /* double quotes => single quotes */
 				*p = '\'';
 			}
 			p++;
 		}
-		delta_sub_words(s, cw_word, cw_keys);
+		delta_sub_common_words(s, cw_word, cw_keys);
 	} else { /* SHOW - spaces for underscores + punc resubs + uppercases */
-		delta_sub_words(s, cw_keys, cw_word);
+		delta_sub_common_words(s, cw_keys, cw_word);
 		if(IS_LOW_CH(*p)) *p ++ -= 32; /* capitalize first letter in file */
 		while(*p != '\0') {
 			if(*p == under_s) { /* '_' => ' ' */
@@ -325,6 +340,7 @@ void modify_str(char *s, int hide_flag) {
 			}
 			p++;
 		}
+		delta_sub_capital_letters(s, 0);
 	}
 }
 void lowify_str(char s[]) {
@@ -339,7 +355,7 @@ void splice_str(char *s, char *sub, int splice_len) {
 	sprintf(temp, "%s%s", sub, s + splice_len);
 	strcpy(s, temp);
 }
-void delta_sub_words(char *s, char remove[][50], char insert[][50]) {
+void delta_sub_common_words(char *s, char remove[][50], char insert[][50]) {
 	int count = 0, found, word_len, i, j;
 	for(i = 0; i < CW_LEN; i++) {
 		char *p = s;
@@ -352,5 +368,24 @@ void delta_sub_words(char *s, char remove[][50], char insert[][50]) {
 			} else if(*p == '.' || *p == '!' || *p == '?') { p++; } /* avoid chaining word subs */
 			p++;
 		}
+	}
+}
+/******************************************************************************
+* CAPITAL WORD INDEX STORAGE
+******************************************************************************/
+void delta_sub_capital_letters(char s[], int pack_flag) {
+	char *p = s + 1;
+	caps.length = 0;
+	unsigned short word_idxs = 0, i = 0;
+	while(*(p + 1) != '\0') {
+		if(*p == ' ' || *p == '\n' || *p == '\t') { /* if is a word */
+			word_idxs++;
+			if(pack_flag == 1) { /* pack - get word indices of capital letters */
+				if(VALID_CAP(*p,*(p-1),*(p+2),*(p+1))) caps.cap_idxs[caps.length ++] = word_idxs; /* if word capitalized */
+			} else { /* unpack - capitalize */
+				if(caps.cap_idxs[i] == word_idxs) { (!IS_ALF_CH(*(p+1))) ? (*(p+2) -= 32) : (*(p+1) -= 32); i++; }
+			}
+		}
+		p++;
 	}
 }
