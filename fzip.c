@@ -116,11 +116,11 @@ char cw_word[CW_LEN][50] = { /* roman numerals */
 	"there", "tion", "then", "than", "well", "them", "some", "will", "that", "this", 
 	"with", "come", "back", "nter", "for", "ear", "different", "ent", "end", "see", 
 	"eye", "man", "use", "even", "able", "thing", "ing", "know", "now", "hand", 
-	"and", "make", "its", "not", "other", "the", "you", "any", "call", "all", "but", 
+	"and", "make", "its", "not", "other", "the", "you", "any", "call", "ally", "all", 
 	"can", "most", "group", "over", "time", "take", "work", "place", "point", "right", 
 	"into", "person", "high", "last", "long", "part", "tell", "she", "ask", "big", 
-	"bad", "after", "fact", "feel", "own", "ere", "try", "her", "how", "new", "out", 
-	"one", "our", "case", "way", "who", "day", "get", "his",
+	"bad", "after", "ess", "but", "own", "ere", "try", "her", "how", "new", "out", 
+	"one", "our", "case", "way", "who", "ate", "get", "his",
 	/* NUMBERS & PUNCTUATION */
 	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", 
 	"(", ")", "\t", ".\n", "!\n", "?\n", "\n", ":", ";", "/"
