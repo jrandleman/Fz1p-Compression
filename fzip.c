@@ -13,14 +13,18 @@
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)-4],APPEND);})
 #define NEED_TO_UPDATE_ARRS(IDX) (IDX != 0 && IDX % 12 == 0)
 #define ITER_NUM(N,X,Y) ((((N + X) / 2) * 3) - Y)
-#define MULT_8(N) (N % 8 == 0)
-#define M8D(N) (N % 8)
+#define MULT_8(N) ((N) % 8 == 0)
+#define M8D(N) ((N) % 8)
 #define SHIFT_CHAR_TOTAL(X) ((5*(X/8))+(M8D(X)>0)+(M8D(X)>1)+(M8D(X)>3)+(M8D(X)>4)+(M8D(X)>6))
-#define IS_LOW_CH(ch_c_inst) ((ch_c_inst) >= 'a' && (ch_c_inst) <= 'z')
-#define IS_CAP_CH(ch_c_inst) ((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z')
-#define IS_ALF_CH(ch_c_inst) (IS_CAP_CH((ch_c_inst)) || IS_LOW_CH((ch_c_inst)))
-#define NOT_PUNC(ch_c_inst) ((ch_c_inst) != '.' && (ch_c_inst) != '!' && (ch_c_inst) != '?')
-#define VALID_CAP(W,X,Y,Z) ((W) == ' ' && NOT_PUNC((X)) && (Y) !=' ' && (IS_CAP_CH((Z)) || (!IS_ALF_CH((Z)) && IS_CAP_CH((Y)))))
+#define IS_LOW_CH(CH) ((CH) >= 'a' && (CH) <= 'z')
+#define IS_CAP_CH(CH) ((CH) >= 'A' && (CH) <= 'Z')
+#define IS_ALF_CH(CH) (IS_CAP_CH((CH)) || IS_LOW_CH((CH)))
+#define IS_PUNC(CH) ((CH) == '.' || (CH) == '!' || (CH) == '?')
+#define VALID_CAP(W,X,Y,Z) ((W) == ' ' && !(IS_PUNC((X))) && (Y) !=' ' && (IS_CAP_CH((Z)) || (!IS_ALF_CH((Z)) && IS_CAP_CH((Y)))))
+#define IS_ABBREV(X,PUNC,Y,Z) ((X) == (PUNC) && IS_ALF_CH((Y)) && (!IS_ALF_CH((Z))))
+#define IS_COMMA(X,Y,Z) ((X) == '-' && ((Y) == '_' || (Y) == '\'') && (Z) != ' ')
+#define IS_I_OR_C_(X,Y) (((X)=='c' || (X)=='i') && ((Y)=='_' || (Y)=='\n'))
+#define DUB_QUOTE(X,Y,Z) ((X) == '\'' && ((Y) == ' ' || (Z) == '_' || IS_PUNC((Z))))
 /* CUSTOM ASSERT FUNCTIONS */
 void myAssert(void *condition, char message[]){if(condition==NULL){printf("%s",message);exit(0);}}
 /* MAIN HIDE / SHOW HANDLERS */
@@ -54,7 +58,7 @@ typedef struct capitalized_words {
 } CAP_WORD;
 CAP_WORD caps;
 /* COMMON WORD SUBSTITUTIONS */
-#define CW_LEN 255
+#define CW_LEN 258
 char cw_keys[CW_LEN][50] = { /* roman numerals */
 	"_2_", "_3_", "_4_", "_5_", "_6_", "_7_", "_8_", "_9_",
 	"_2\n", "_3\n", "_4\n", "_5\n", "_6\n", "_7\n", "_8\n", "_9\n",
@@ -85,7 +89,7 @@ char cw_keys[CW_LEN][50] = { /* roman numerals */
 	"!?", "?!", "!.", ".?", ".!",
 	/* NUMBERS & PUNCTUATION */
 	"_jq_", "_jw_", "_jx_", "_jy_", "_jz_", "_jt_", "_js_", "_jp_", "_jn_", "_jm_",
-	"_jb_", "_jc_", "_jd_", "?-", "--", ".-", "!-"
+	"_jb_", "_jc_", "_jd_", "._?-", "!_?-", "?_?-", "_?-", "--", ".-", "!-"
 };
 char cw_word[CW_LEN][50] = { /* roman numerals */
 	"_ii_", "_iii_", "_iv_", "_v_", "_vi_", "_vii_", "_iix_", "_ix_",
@@ -119,22 +123,21 @@ char cw_word[CW_LEN][50] = { /* roman numerals */
 	"one", "our", "case", "way", "who", "day", "get", "his",
 	/* NUMBERS & PUNCTUATION */
 	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", 
-	"(", ")", "\t", "\n", ":", ";", "/"
+	"(", ")", "\t", ".\n", "!\n", "?\n", "\n", ":", ";", "/"
 };
 int zip_info = 0; /* output compresion/decompresion progress */
 int main(int argc, char *argv[]) {
 	if(argc < 3) err_info();
-	char *action = argv[2], filename[75];
-	lowify_str(action);
+	char filename[75];
+	lowify_str(argv[2]);
 	ADD_FILENAME_EXTENSION(argv[1], filename, "_fzipped.bin");
 	if(argc == 4) {
-		char *insight = argv[3];
-		lowify_str(insight);
-		if(strcmp(insight, "info") == 0) zip_info = 1;
+		lowify_str(argv[3]);
+		if(strcmp(argv[3], "info") == 0) zip_info = 1;
 	}
-	if(strcmp(action, "hide") == 0) {
+	if(strcmp(argv[2], "hide") == 0) {
 		HIDE_HASH_PACK_HANDLER(argv[1], filename);
-	} else if(strcmp(action, "show") == 0) {
+	} else if(strcmp(argv[2], "show") == 0) {
 		SHOW_DEHASH_UNPACK_HANDLER(argv[1], filename);
 	} else { err_info(); }
 	return 0;
@@ -163,10 +166,6 @@ void HIDE_HASH_PACK_HANDLER(char arg1[], char *filename) {
 		if(j_true[j] == 1) { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] << bit_shift_nums[j]) & 255); }
 		else { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] >> bit_shift_nums[j]) & 255); }
 	}
-	/* WRITE PACKED_UCH TO TRIMMED ARRAY */
-	unsigned char trimmed_uch[PACKED_UCH_TOTAL + 1]; /* only as large as needed for packing */
-	memcpy(trimmed_uch, packed_uch, sizeof(unsigned char)*(PACKED_UCH_TOTAL + 1));
-	trimmed_uch[PACKED_UCH_TOTAL] = '\0';
 	/* WRITE PACKED HASHED TEXT TO FILE */
 	unsigned short write_size = (unsigned short)PASSED_STR_TOTAL, cap_len = caps.length;
 	FILE *fp;
@@ -174,11 +173,11 @@ void HIDE_HASH_PACK_HANDLER(char arg1[], char *filename) {
 	fwrite(&cap_len, sizeof(unsigned short), 1, fp); /* write capitals length */
 	fwrite(caps.cap_idxs, sizeof(unsigned short), cap_len, fp); /* write capitals array */
 	fwrite(&write_size, sizeof(unsigned short), 1, fp);
-	fwrite(trimmed_uch, sizeof(unsigned char), PACKED_UCH_TOTAL, fp);
+	fwrite(packed_uch, sizeof(unsigned char), PACKED_UCH_TOTAL, fp);
 	fclose(fp);
 	int pack_tot = cw_size - PACKED_UCH_TOTAL, compr_bytes = 4+PACKED_UCH_TOTAL+(2*cap_len); /* 4+ for compr&cap lengths ushorts & cap array in front */
 	float pack_ratio = COMPR_RATIO(PACKED_UCH_TOTAL, cw_size);
-	if(zip_info == 1) printf("\nBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", pack_tot, pack_ratio, trimmed_uch);
+	if(zip_info == 1) printf("\nBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", pack_tot, pack_ratio, packed_uch);
 	printf("\n>>> SIZE: %d - FILE CREATED: %s\n", compr_bytes, filename);
 	/* OUPUT COMPRESSION RESULTS */
 	float total_saved_bytes_ratio = COMPR_RATIO(compr_bytes, original_length); 
@@ -304,42 +303,48 @@ void increment_idx_shift_arrs(int *j, int pack_ch_idx[], int unpack_uch_idx[]) {
 ******************************************************************************/
 void modify_str(char *s, int hide_flag) { 
 	char *p = s, space = ' ', under_s = '_';
-	if(hide_flag == 1) { /* HIDE - lowercase + underscores for spaces + punc subs */
+	if(hide_flag == 1) { /* HIDE */
 		delta_sub_capital_letters(s, 1);
 		while(*p != '\0') {
 			*p = tolower(*p); /* make lowercase */
 			if(*p == space) { /* ' ' => '_' */
 				*p = under_s;
-			} else if(*p == ','|| *p == '_') { /* replace certain punctuation with a dash */
+			} else if(*p == ','|| *p == '_') { /* sub punctuation with dash */
+				*p = '-';
+			} else if(IS_ABBREV(*p, '.', *(p+1), *(p+2))) { /* handle abbreviations via dash (ie u.s. => u-s.) */
+				if(!(IS_CAP_CH(*(p+4)))) *(p+2) = '-'; /* don't capitalize words post-abrev lest new sentence ('.' => '-') */
 				*p = '-';
 			} else if(*p == '['|| *p == '{') { /* parenthesis substitutions */
 				*p = '(';
 			} else if(*p == ']'|| *p == '}') { /* parenthesis substitutions */
 				*p = ')';
-			} else if(*p == '"') { /* double quotes => single quotes */
-				*p = '\'';
-			}
+			} else if(*p == '"') { *p = '\''; } /* double quotes => single quotes */
 			p++;
 		}
 		delta_sub_common_words(s, cw_word, cw_keys);
-	} else { /* SHOW - spaces for underscores + punc resubs + uppercases */
+	} else { /* SHOW */
 		delta_sub_common_words(s, cw_keys, cw_word);
 		if(IS_LOW_CH(*p)) *p ++ -= 32; /* capitalize first letter in file */
 		while(*p != '\0') {
-			if(*p == under_s) { /* '_' => ' ' */
+			if(*p == under_s) { /* '_' => ' ', capitalize ' I ' && ' C ' (if applicable) */
 				*p = space;
-				if((*(p+1)=='c' || *(p+1)=='i') && (*(p+2)==under_s || *(p+2)=='\n')) *(p+1) -= 32; /* capitalize ' I ' && ' C ' */
-			} else if(*p == '-' && (*(p + 1) == '_' || *(p + 1) == '\'') && *(p - 1) != space) { /* comma -_ => ,_ */
+				if(IS_I_OR_C_(*(p+1), *(p+2))) *(p+1) = toupper(*(p+1));
+			} else if(IS_COMMA(*p, *(p+1), *(p-1))) { /* comma -_ => ,_ */
 				*p = ',';
-			} else if((*p=='.' || *p=='!' || *p=='?') && *(p+1) == '_' && IS_LOW_CH(*(p+2))) {
-				*(p+2) -= 32; /* capitalize letters after periods, exclamations, and question marks */
-			} else if(*p=='\n' && IS_LOW_CH(*(p+1))) {
-				*(p+1) -= 32; /* capitalize letters after newlines */
-			} else if(*p == '\'' && (*(p - 1) == space || *(p + 1) == under_s)) { /* sub double quotes back in */
+			} else if(IS_ABBREV(*p, '-', *(p+1), *(p+2))) { /* abbrev's & tag ('-' => '@') any mid-sentence */
+				if(*(p+2) == '-') *(p+2) = '@';
+				*p = '.';
+				*(p+1) = toupper(*(p+1));
+			} else if(IS_PUNC(*p) && *(p+1) == '_' && IS_LOW_CH(*(p+2))) { /* capitalize letters after . ! ? */
+				*(p+2) = toupper(*(p+2));
+			} else if(*p=='\n' && IS_LOW_CH(*(p+1))) { /* capitalize letters after \n */
+				*(p+1) = toupper(*(p+1));
+			} else if(DUB_QUOTE(*p, *(p-1), *(p+1))) { /* sub double quotes back in */
 				*p = '"';
-			}
+			} else if(p > &s[2] && *(p-2) == '@') { *(p-2) = '.'; } /* ('@' => '.') if mid-sentence abbreviation */
 			p++;
 		}
+		if(s[strlen(s)-1] == '@') s[strlen(s)-1] = '.'; /* in case file ends with an abbreviation */
 		delta_sub_capital_letters(s, 0);
 	}
 }
@@ -365,7 +370,7 @@ void delta_sub_common_words(char *s, char remove[][50], char insert[][50]) {
 			if(*p == remove[i][0]) {
 				for(j = 0; j < word_len; j++) if(*(p + j) != remove[i][j]) break;
 				if(j == word_len) splice_str(p, insert[i], word_len); /* if word in s is common word */
-			} else if(*p == '.' || *p == '!' || *p == '?') { p++; } /* avoid chaining word subs */
+			} else if(IS_PUNC(*p)) { p++; } /* avoid chaining word subs */
 			p++;
 		}
 	}
@@ -383,7 +388,7 @@ void delta_sub_capital_letters(char s[], int pack_flag) {
 			if(pack_flag == 1) { /* pack - get word indices of capital letters */
 				if(VALID_CAP(*p,*(p-1),*(p+2),*(p+1))) caps.cap_idxs[caps.length ++] = word_idxs; /* if word capitalized */
 			} else { /* unpack - capitalize */
-				if(caps.cap_idxs[i] == word_idxs) { (!IS_ALF_CH(*(p+1))) ? (*(p+2) -= 32) : (*(p+1) -= 32); i++; }
+				if(caps.cap_idxs[i] == word_idxs) { (!IS_ALF_CH(*(p+1))) ? (*(p+2) = toupper(*(p+2))) : (*(p+1) = toupper(*(p+1))); i++; }
 			}
 		}
 		p++;
