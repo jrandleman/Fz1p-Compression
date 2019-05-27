@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #define MAX_CH 1000000
+#define COMPR_MEM(UCH_TOT,CAP_SIZE) (5 + (FULL_CW_LEN - CW_LEN) + (UCH_TOT) + (2 * (CAP_SIZE))) /* key l + key arr + cap l + cap arr + uncompr l + compr arr */
 #define COMPR_RATIO(NEW,OLD) (100*(1.000000 - (((float)NEW)/((float)OLD))))
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)-4],APPEND);})
 #define NEED_TO_UPDATE_ARRS(IDX) (IDX != 0 && IDX % 12 == 0)
@@ -28,13 +29,17 @@
 /* CUSTOM ASSERT FUNCTIONS */
 void myAssert(void *condition, char message[]){if(condition==NULL){printf("%s",message);exit(0);}}
 /* MAIN HIDE / SHOW HANDLERS */
-void HIDE_HASH_PACK_HANDLER(char *, char *);
-void SHOW_DEHASH_UNPACK_HANDLER(char *, char *);
-/* HANDLE TEXT FROM ARG1 FILE */
-void read_passed_str(char [], char *);
+void HIDE_HANDLER(char *, char *);
+void SHOW_HANDLER(char *, char *);
+/* HANDLE TEXT FILE */
+void read_passed_str(char [], char *, int *);
+void write_compr_str(char [], int, int, unsigned char []);
+void read_compr_text(char *, char [], int *, unsigned char [], unsigned char []);
 void delete_original_file_option(char *);
 void err_info();
 /* HASH/DEHASH FUNCTIONS */
+void hash_pack_handler(int, char [], unsigned char []);
+void unpack_dehash_handler(int, char [], unsigned char [], unsigned char []);
 void hash_hide(int, char [], unsigned char []);
 void dehash_show(int, char [], unsigned char unpacked_uch[]);
 unsigned char hide_hash_value(char);
@@ -57,11 +62,19 @@ typedef struct capitalized_words {
 	unsigned short cap_idxs[MAX_CH], length;
 } CAP_WORD;
 CAP_WORD caps;
+/* EDIT COMMON WORD (CW) SUBS IF KEY IN TEXT (ANOMALY) */
+void hide_adjust_cw_keys(char []);
+void show_adjust_cw_keys(unsigned char);
+void shift_up_cw_keys(int);
+void modify_key(char *, char *);
 /* COMMON WORD SUBSTITUTIONS */
-#define CW_LEN 258
-char cw_keys[CW_LEN][50] = { /* roman numerals */
-	"_2_", "_3_", "_4_", "_5_", "_6_", "_7_", "_8_", "_9_",
-	"_2\n", "_3\n", "_4\n", "_5\n", "_6\n", "_7\n", "_8\n", "_9\n",
+#define FULL_CW_LEN 255
+char cw_keys[FULL_CW_LEN][50] = { /* roman numerals */
+	"_2_", "_3", "_4_", "_5_", "_6_", "_7", "_8", "_9_",
+	"_2\n", "_4\n", "_5\n", "_6\n", "_9\n",
+	/* numbers & punctuation */
+	"_jq", "_jw", "_jx", "_jy", "_jz", "_jt", "_js", "_jp", "_jn", "_jm",
+	"_jb_", "_jc_", "_jd_", "._?-", "!_?-", "?_?-", "_?-", "--", ".-", "!-", 
 	/* single letter */
 	"_t_", "_o_", "_s_", "_w_", "_p_", "_d_", "_n_", "_r_", "_y_", "_f_", "_l_", "_h_", 
 	"_b_", "_g_", "_m_", "_e_", "_v_", "_u_", "_j_", "_x_", "_k_", "_z_", "_q_", 
@@ -80,20 +93,20 @@ char cw_keys[CW_LEN][50] = { /* roman numerals */
 	"_pb_", "_pr_", "_py_", "_pf_", "_pl_", "_po_", "_pg_", "_hs_", "_ht_", 
 	"_hd_", "_hn_", "_hr_", "_hy_", "_hf_", "_hl_", "_ho_", "_hg_", "_fe_", "_fs_", 
 	"_ft_", "_fd_",
-	/* NO-SPACE */
+	/* no-space */
 	".e", "!e", "?e", ".t", "!t", "?t", ".a", "!a", "?a", ".o", "!o", "?o", ".i", "!i", "?i", 
 	".n", "!n", "?n", ".s", "!s", "?s", ".h", "!h", "?h", ".r", "!r", "?r", ".d", "!d", "?d", 
 	".l", "!l", "?l", ".c", "!c", "?c", ".u", "!u", "?u", ".m", "!m", "?m", ".w", "!w", "?w", 
 	".f", "!f", "?f", ".g", "!g", "?g", ".y", "!y", "?y", ".p", "!p", "?p", ".b", "!b", "?b", 
 	".v", "?v", "!v", ".k", "!k", "?k", ".j", "?j", "!j", ".x", "?x", "!x", ".z", ".q", "?.",
 	"!?", "?!", "!.", ".?", ".!",
-	/* NUMBERS & PUNCTUATION */
-	"_jq_", "_jw_", "_jx_", "_jy_", "_jz_", "_jt_", "_js_", "_jp_", "_jn_", "_jm_",
-	"_jb_", "_jc_", "_jd_", "._?-", "!_?-", "?_?-", "_?-", "--", ".-", "!-"
 };
-char cw_word[CW_LEN][50] = { /* roman numerals */
-	"_ii_", "_iii_", "_iv_", "_v_", "_vi_", "_vii_", "_iix_", "_ix_",
-	"_ii\n", "_iii\n", "_iv\n", "_v\n", "_vi\n", "_vii\n", "_iix\n", "_ix\n",
+char cw_word[FULL_CW_LEN][50] = { /* roman numerals */
+	"_ii_", "_iii", "_iv_", "_v_", "_vi_", "_vii", "_iix", "_ix_",
+	"_ii\n", "_iv\n", "_v\n", "_vi\n", "_ix\n",
+	/* numbers & punctuation */
+	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", 
+	"(", ")", "\t", ".\n", "!\n", "?\n", "\n", ":", ";", "/", 
 	/* single letter */
 	"_at_", "_as_", "_an_", "_be_", "_by_", "_do_", "_are_", "_in_", "_is_", "_it_", "_my_", "_of_", 
 	"_on_", "_or_", "_to_", "_and_", "_the_", "_have_", "_that_", "_this_", "_with_", "_you_", "_up_",
@@ -112,7 +125,7 @@ char cw_word[CW_LEN][50] = { /* roman numerals */
 	"_government_", "_group_", "_great_", "_important_", "_leave_", "_little_", "_large_", "_number_", "_not_", 
 	"_person_", "_place_", "_point_", "_problem_", "_public_", "_right_", "_small_", "_thing_", "_world_", "_woman_", 
 	"_young_", "_would_", 
-	/* NO-SPACE */
+	/* no-space */
 	"there", "tion", "then", "than", "well", "them", "some", "will", "that", "this", 
 	"with", "come", "back", "nter", "for", "ear", "different", "ent", "end", "see", 
 	"eye", "man", "use", "even", "able", "thing", "ing", "know", "now", "hand", 
@@ -121,10 +134,8 @@ char cw_word[CW_LEN][50] = { /* roman numerals */
 	"into", "person", "high", "last", "long", "part", "tell", "she", "ask", "big", 
 	"bad", "after", "ess", "but", "own", "ere", "try", "her", "how", "new", "out", 
 	"one", "our", "case", "way", "who", "ate", "get", "his",
-	/* NUMBERS & PUNCTUATION */
-	"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", 
-	"(", ")", "\t", ".\n", "!\n", "?\n", "\n", ":", ";", "/"
 };
+unsigned char CW_LEN = FULL_CW_LEN, cw_shift_up_idxs[FULL_CW_LEN]; /* store indices of rmvd cw_keys */
 int zip_info = 0; /* output compresion/decompresion progress */
 int main(int argc, char *argv[]) {
 	if(argc < 3) err_info();
@@ -136,49 +147,27 @@ int main(int argc, char *argv[]) {
 		if(strcmp(argv[3], "info") == 0) zip_info = 1;
 	}
 	if(strcmp(argv[2], "hide") == 0) {
-		HIDE_HASH_PACK_HANDLER(argv[1], filename);
+		HIDE_HANDLER(argv[1], filename);
 	} else if(strcmp(argv[2], "show") == 0) {
-		SHOW_DEHASH_UNPACK_HANDLER(argv[1], filename);
+		SHOW_HANDLER(argv[1], filename);
 	} else { err_info(); }
 	return 0;
 }
 /******************************************************************************
 * MAIN HIDE / SHOW HANDLERS
 ******************************************************************************/
-void HIDE_HASH_PACK_HANDLER(char arg1[], char *filename) {
-	/* READ STR FROM ARG1 FILE ARG  & PREP READ STR FOR COMPRESSION */
+void HIDE_HANDLER(char arg1[], char *filename) {
+	/* READ ARG1 FILE & PREP TEXT FOR COMPRESSION */
 	char passed_str[MAX_CH];
-	read_passed_str(passed_str, arg1);
-	int original_length = strlen(passed_str);
-	modify_str(passed_str, 1); /* prep passed_str for compression */
-	int cw_tot = original_length - strlen(passed_str), cw_size = strlen(passed_str);
-	float cw_ratio = COMPR_RATIO(strlen(passed_str), original_length);
-	if(zip_info == 1) printf("\nCommon Words/Phrases Compressed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", cw_tot, cw_ratio, passed_str);
+	int original_length;
+	read_passed_str(passed_str, arg1, &original_length);
 	/* HASH & PACK TEXT */
-	int PASSED_STR_TOTAL = strlen(passed_str), j_true[] = {1,0,1,1,0,1,0,1,1,0,1,1};
-	int pack_ch_idx[] = {0,0,1,1,1,2,2,3,3,3,4,4}, unpack_uch_idx[] = {0,1,1,2,3,3,4,4,5,6,6,7}, bit_shift_nums[] = {3,2,6,1,4,4,1,7,2,3,5,0};
-	int pack_shift_iterations = BITSHIFT_ITERATION_TOTAL(PASSED_STR_TOTAL), PACKED_UCH_TOTAL = SHIFT_CHAR_TOTAL(PASSED_STR_TOTAL);
-	unsigned char packed_uch[MAX_CH], passed_uch[MAX_CH];
-	init_compr_arr(packed_uch); /* init packed_uch with 0's to clear garbage memory for bitpacking */
-	hash_hide(PASSED_STR_TOTAL, passed_str, passed_uch);
-	for(int i = 0, j = 0; i < pack_shift_iterations; i++, j++) { /* BIT-PACK TEXT */
-		if(NEED_TO_UPDATE_ARRS(i)) increment_idx_shift_arrs(&j, pack_ch_idx, unpack_uch_idx); /* UPDATE CHAR ACCESS IDXS */
-		if(j_true[j] == 1) { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] << bit_shift_nums[j]) & 255); }
-		else { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] >> bit_shift_nums[j]) & 255); }
-	}
+	int PASSED_STR_TOTAL = strlen(passed_str);
+	unsigned char packed_uch[MAX_CH];
+	hash_pack_handler(PASSED_STR_TOTAL, passed_str, packed_uch);
 	/* WRITE PACKED HASHED TEXT TO FILE */
-	unsigned short write_size = (unsigned short)PASSED_STR_TOTAL, cap_len = caps.length;
-	FILE *fp;
-	myAssert((fp = fopen(filename, "wb")), "\n\n(!!!) ERROR WRITING COMPRESSED TEXE TO BINARY FILE (!!!)\n\n");
-	fwrite(&cap_len, sizeof(unsigned short), 1, fp); /* write capitals length */
-	fwrite(caps.cap_idxs, sizeof(unsigned short), cap_len, fp); /* write capitals array */
-	fwrite(&write_size, sizeof(unsigned short), 1, fp);
-	fwrite(packed_uch, sizeof(unsigned char), PACKED_UCH_TOTAL, fp);
-	fclose(fp);
-	int pack_tot = cw_size - PACKED_UCH_TOTAL, compr_bytes = 4+PACKED_UCH_TOTAL+(2*cap_len); /* 4+ for compr&cap lengths ushorts & cap array in front */
-	float pack_ratio = COMPR_RATIO(PACKED_UCH_TOTAL, cw_size);
-	if(zip_info == 1) printf("\nBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", pack_tot, pack_ratio, packed_uch);
-	printf("\n>>> SIZE: %d - FILE CREATED: %s\n", compr_bytes, filename);
+	int compr_bytes = COMPR_MEM(SHIFT_CHAR_TOTAL(PASSED_STR_TOTAL), (caps.length));
+	write_compr_str(filename, PASSED_STR_TOTAL, compr_bytes, packed_uch);
 	/* OUPUT COMPRESSION RESULTS */
 	float total_saved_bytes_ratio = COMPR_RATIO(compr_bytes, original_length); 
 	printf("\n==============================================================================");
@@ -187,58 +176,78 @@ void HIDE_HASH_PACK_HANDLER(char arg1[], char *filename) {
 	printf("==============================================================================\n\n");
 	delete_original_file_option(arg1);
 }
-void SHOW_DEHASH_UNPACK_HANDLER(char *arg1, char *filename) {
+void SHOW_HANDLER(char *arg1, char *filename) {
 	/* READ PACKED HASHED TEXT FROM FILE */
 	char unpacked_str[MAX_CH];
-	int PASSED_STR_TOTAL, read_char_total;
+	int PASSED_STR_TOTAL;
 	unsigned char packed_uch[MAX_CH], unpacked_uch[MAX_CH];
-	unsigned short read_size, cap_len;
-	init_decompr_arr(unpacked_str); /* init unpacked_str with 0's to clear garbage memory for bitpacking */
-	init_compr_arr(unpacked_uch); /* init unpacked_uch with 0's to clear garbage memory for bitpacking */
-	FILE *fp;
-	myAssert((fp = fopen(filename, "rb")), "\n\n(!!!) ERROR READING COMPRESSED TEXT FROM BINARY FILE (!!!)\n\n");
-	fread(&cap_len, sizeof(unsigned short), 1, fp); /* read capitals length */
-	fread(caps.cap_idxs, sizeof(unsigned short), cap_len, fp); /* read capitals array */
-	fread(&read_size, sizeof(unsigned short), 1, fp);
-	PASSED_STR_TOTAL = (int)read_size;
-	read_char_total = SHIFT_CHAR_TOTAL(read_size);
-	fread(packed_uch, sizeof(unsigned char), read_char_total, fp);
-	fclose(fp);
-	remove(filename);
-	if(zip_info == 1) printf("\nBit-Packed:\n%s\n", packed_uch);
+	read_compr_text(filename, unpacked_str, &PASSED_STR_TOTAL, packed_uch, unpacked_uch);
 	/* UNPACK & DEHASH TEXT */
-	int unpack_shift_iterations = BITSHIFT_ITERATION_TOTAL(PASSED_STR_TOTAL), j_true[] = {1,0,1,1,0,1,0,1,1,0,1,1};
-	int pack_ch_idx[] = {0,0,1,1,1,2,2,3,3,3,4,4}, unpack_uch_idx[] = {0,1,1,2,3,3,4,4,5,6,6,7}, bit_shift_nums[] = {3,2,6,1,4,4,1,7,2,3,5,0};
-	for(int i = 0, j = 0; i < unpack_shift_iterations; i++, j++) { /* BIT-UNPACK TEXT */
-		if(NEED_TO_UPDATE_ARRS(i)) increment_idx_shift_arrs(&j, pack_ch_idx, unpack_uch_idx); /* UPDATE CHAR ACCESS IDXS */
-		if(j_true[j] == 1) { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] >> bit_shift_nums[j]) & 31)); }
-		else { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] << bit_shift_nums[j]) & 31)); }
-	}
-	dehash_show(PASSED_STR_TOTAL, unpacked_str, unpacked_uch);
-	if(zip_info == 1) printf("\nCommon Words/Phrases Compressed:\n%s\n", unpacked_str);
+	unpack_dehash_handler(PASSED_STR_TOTAL, unpacked_str, packed_uch, unpacked_uch);
 	printf("\n>>> FILE REMOVED: %s\n", filename);
-	modify_str(unpacked_str, 0); /* revert unpacked_str back to pre-compression format */
 	printf("\n==============================================================================");
 	printf("\n>> %s ==DECOMPRESS=> %s\n", filename, arg1);
 	printf("==============================================================================\n\n");
 	/* WRITE unpacked_str[] BACK TO ARG1 TEXT FILE */
+	FILE *fp;
 	myAssert((fp = fopen(arg1, "w")), "\n\n(!!!) ERROR WRITING DECOMPRESSED TEXT FILE (!!!)\n\n");
 	fprintf(fp, "%s", unpacked_str);
 	fclose(fp);
 }
 /******************************************************************************
-* HANDLE TEXT FROM ARG1 FILE
+* HANDLE TEXT/BINARY FILES
 ******************************************************************************/
-void read_passed_str(char s[], char *arg1) {
-	FILE *fp; /* READ UNCOMPRESSED TEXT PASSED AS ARG1 FOR THE FIRST TIME */
+void read_passed_str(char s[], char *arg1, int *original_length) {
+	FILE *fp;
 	myAssert((fp = fopen(arg1, "r")), "\n\n(!!!) ERROR READING UNCOMPRESSED TEXT FILE (!!!)\n\n");
 	char buff[500];
-	int count = 0;
-	while(fgets(buff, 500, fp) != NULL) {
-		strcpy(&s[count], buff);
-		count += (strlen(buff));
-	}
+	int count = 0, cw_tot;
+	while(fgets(buff, 500, fp) != NULL) { strcpy(&s[count], buff); count += (strlen(buff)); }
 	fclose(fp);
+	*original_length = strlen(s);
+	hide_adjust_cw_keys(s);
+	modify_str(s, 1); /* prep s for compression */
+	cw_tot = *original_length - strlen(s);
+	float cw_ratio = COMPR_RATIO(strlen(s), *original_length);
+	if(zip_info == 1) printf("\nCommon Words/Phrases Compressed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", cw_tot, cw_ratio, s);
+}
+void write_compr_str(char filename[], int PASSED_STR_TOTAL, int compr_bytes, unsigned char packed_uch[]) {
+	unsigned short write_size = (unsigned short)PASSED_STR_TOTAL, cap_len = caps.length;
+	unsigned char cw_write_length = FULL_CW_LEN - CW_LEN;
+	int PACKED_UCH_TOTAL = SHIFT_CHAR_TOTAL(PASSED_STR_TOTAL);
+	FILE *fp;
+	myAssert((fp = fopen(filename, "wb")), "\n\n(!!!) ERROR WRITING COMPRESSED TEXE TO BINARY FILE (!!!)\n\n");
+	fwrite(&cw_write_length, sizeof(unsigned char), 1, fp); /* write modified cw_keys idxs length */
+	fwrite(cw_shift_up_idxs, sizeof(unsigned char), cw_write_length, fp); /* write modified cw_keys idxs array */
+	fwrite(&cap_len, sizeof(unsigned short), 1, fp); /* write capitals length */
+	fwrite(caps.cap_idxs, sizeof(unsigned short), cap_len, fp); /* write capitals array */
+	fwrite(&write_size, sizeof(unsigned short), 1, fp); /* write uncompressed/original file length */
+	fwrite(packed_uch, sizeof(unsigned char), PACKED_UCH_TOTAL, fp); /* write compressed text */
+	fclose(fp);
+	int pack_tot = PASSED_STR_TOTAL - PACKED_UCH_TOTAL;
+	float pack_ratio = COMPR_RATIO(PACKED_UCH_TOTAL, PASSED_STR_TOTAL);
+	if(zip_info == 1) printf("\nBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", pack_tot, pack_ratio, packed_uch);
+	printf("\n>>> SIZE: %d - FILE CREATED: %s\n", compr_bytes, filename);
+}
+void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL, unsigned char packed_uch[], unsigned char unpacked_uch[]) {
+	unsigned short read_size, cap_len;
+	unsigned char cw_read_length;
+	init_decompr_arr(unpacked_str); /* init unpacked_str with 0's to clear garbage memory for bitpacking */
+	init_compr_arr(unpacked_uch); /* init 0's to clear garbage memory */
+	FILE *fp;
+	myAssert((fp = fopen(filename, "rb")), "\n\n(!!!) ERROR READING COMPRESSED TEXT FROM BINARY FILE (!!!)\n\n");
+	fread(&cw_read_length, sizeof(unsigned char), 1, fp); /* read modified cw_keys idxs length */
+	fread(cw_shift_up_idxs, sizeof(unsigned char), cw_read_length, fp); /* read modified cw_keys idxs array */
+	fread(&cap_len, sizeof(unsigned short), 1, fp); /* read capitals length */
+	fread(caps.cap_idxs, sizeof(unsigned short), cap_len, fp); /* read capitals array */
+	fread(&read_size, sizeof(unsigned short), 1, fp); /* read uncompressed/original file length */
+	*PASSED_STR_TOTAL = (int)read_size;
+	int read_char_total = SHIFT_CHAR_TOTAL(read_size);
+	fread(packed_uch, sizeof(unsigned char), read_char_total, fp); /* read compressed text */
+	fclose(fp);
+	remove(filename);
+	show_adjust_cw_keys(cw_read_length);
+	if(zip_info == 1) printf("\nBit-Packed:\n%s\n", packed_uch);
 }
 void delete_original_file_option(char *arg1) {
 	int delete_original_text_file;
@@ -255,12 +264,38 @@ void delete_original_file_option(char *arg1) {
 void err_info() {
 	printf("\n============================= INVALID EXECUTION! =============================\n");
 	printf("$ gcc -o fzip fzip.c\n$ ./fzip textfile.txt hide/show\n");
+	printf("==============================================================================\n");
+	printf("=> COMPRESSION INFORMATION: $ ... hide/show info\n");
 	printf("==============================================================================\n\n");
 	exit(0);
 }
 /******************************************************************************
 * HASH/DEHASH FUNCTIONS
 ******************************************************************************/
+void hash_pack_handler(int PASSED_STR_TOTAL, char passed_str[], unsigned char packed_uch[]) {
+	int pack_ch_idx[] = {0,0,1,1,1,2,2,3,3,3,4,4}, unpack_uch_idx[] = {0,1,1,2,3,3,4,4,5,6,6,7}, bit_shift_nums[] = {3,2,6,1,4,4,1,7,2,3,5,0};
+	int pack_shift_iterations = BITSHIFT_ITERATION_TOTAL(PASSED_STR_TOTAL), shift_left[] = {1,0,1,1,0,1,0,1,1,0,1,1};
+	unsigned char passed_uch[MAX_CH];
+	init_compr_arr(packed_uch); /* init packed_uch with 0's to clear garbage memory for bitpacking */
+	hash_hide(PASSED_STR_TOTAL, passed_str, passed_uch);
+	for(int i = 0, j = 0; i < pack_shift_iterations; i++, j++) { /* BIT-PACK TEXT */
+		if(NEED_TO_UPDATE_ARRS(i)) increment_idx_shift_arrs(&j, pack_ch_idx, unpack_uch_idx); /* UPDATE CHAR ACCESS IDXS */
+		if(shift_left[j] == 1) { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] << bit_shift_nums[j]) & 255); }
+		else { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] >> bit_shift_nums[j]) & 255); }
+	}
+}
+void unpack_dehash_handler(int PASSED_STR_TOTAL, char unpacked_str[], unsigned char packed_uch[], unsigned char unpacked_uch[]) {
+	int unpack_shift_iterations = BITSHIFT_ITERATION_TOTAL(PASSED_STR_TOTAL), shift_right[] = {1,0,1,1,0,1,0,1,1,0,1,1};
+	int pack_ch_idx[] = {0,0,1,1,1,2,2,3,3,3,4,4}, unpack_uch_idx[] = {0,1,1,2,3,3,4,4,5,6,6,7}, bit_shift_nums[] = {3,2,6,1,4,4,1,7,2,3,5,0};
+	for(int i = 0, j = 0; i < unpack_shift_iterations; i++, j++) { /* BIT-UNPACK TEXT */
+		if(NEED_TO_UPDATE_ARRS(i)) increment_idx_shift_arrs(&j, pack_ch_idx, unpack_uch_idx); /* UPDATE CHAR ACCESS IDXS */
+		if(shift_right[j] == 1) { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] >> bit_shift_nums[j]) & 31)); }
+		else { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] << bit_shift_nums[j]) & 31)); }
+	}
+	dehash_show(PASSED_STR_TOTAL, unpacked_str, unpacked_uch);
+	if(zip_info == 1) printf("\nCommon Words/Phrases Compressed:\n%s\n", unpacked_str);
+	modify_str(unpacked_str, 0); /* revert unpacked_str back to pre-compression format */
+}
 void hash_hide(int len, char passed_str[], unsigned char passed_uch[]) {
 	for(int i = 0; i < len; i++) passed_uch[i] = hide_hash_value(passed_str[i]);
 }
@@ -355,17 +390,11 @@ void lowify_str(char s[]) {
 /******************************************************************************
 * COMMON WORD SUBSTITUTION FUNCTIONS
 ******************************************************************************/
-void splice_str(char *s, char *sub, int splice_len) {
-	char temp[MAX_CH];
-	sprintf(temp, "%s%s", sub, s + splice_len);
-	strcpy(s, temp);
-}
 void delta_sub_common_words(char *s, char remove[][50], char insert[][50]) {
-	int count = 0, found, word_len, i, j;
+	int word_len, i, j;
 	for(i = 0; i < CW_LEN; i++) {
 		char *p = s;
 		word_len = strlen(remove[i]);
-		found = 0;
 		while(*p != '\0') {
 			if(*p == remove[i][0]) {
 				for(j = 0; j < word_len; j++) if(*(p + j) != remove[i][j]) break;
@@ -374,6 +403,11 @@ void delta_sub_common_words(char *s, char remove[][50], char insert[][50]) {
 			p++;
 		}
 	}
+}
+void splice_str(char *s, char *sub, int splice_len) {
+	char temp[MAX_CH];
+	sprintf(temp, "%s%s", sub, s + splice_len);
+	strcpy(s, temp);
 }
 /******************************************************************************
 * CAPITAL WORD INDEX STORAGE
@@ -393,4 +427,36 @@ void delta_sub_capital_letters(char s[], int pack_flag) {
 		}
 		p++;
 	}
+}
+/******************************************************************************
+* EDIT COMMON WORD (CW) SUBS IF KEY IN TEXT (ANOMALY)
+******************************************************************************/
+void hide_adjust_cw_keys(char s[]) {
+	int word_len, i, j;
+	for(i = 0; i < CW_LEN; i++) {
+		char *p = s, modded_key[50];
+		word_len = strlen(cw_keys[i]);
+		modify_key(modded_key, cw_keys[i]);
+		if(modded_key[1] >= '2' && modded_key[1] <= '9') continue;
+		while(*p != '\0') {
+			if(*p == modded_key[0]) {
+				for(j = 0; j < word_len; j++) if(*(p + j) != modded_key[j]) break;
+				if(j == word_len) {
+					shift_up_cw_keys(i);
+					cw_shift_up_idxs[FULL_CW_LEN - (CW_LEN--)] = (unsigned char)i;
+				}
+			}
+			p++;
+		}
+	}
+}
+void show_adjust_cw_keys(unsigned char length) {
+	for(int i = 0; i < length; i++) { shift_up_cw_keys((int)cw_shift_up_idxs[i]); CW_LEN--; }
+}
+void shift_up_cw_keys(int idx) {
+	for(int i = idx; i < (CW_LEN - 1); i++) { strcpy(cw_keys[i],cw_keys[i+1]); strcpy(cw_word[i],cw_word[i+1]);}
+}
+void modify_key(char *modded_key, char *key) {
+	strcpy(modded_key, key);
+	for(int i = 0; i < strlen(key); i++) if(key[i] == '_') modded_key[i] = ' ';
 }
