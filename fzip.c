@@ -374,9 +374,8 @@ void modify_str(char *s, int hide_flag) {
 				*(p+2) = toupper(*(p+2));
 			} else if(*p=='\n' && IS_LOW_CH(*(p+1))) { /* capitalize letters after \n */
 				*(p+1) = toupper(*(p+1));
-			} else if(DUB_QUOTE(*p, *(p-1), *(p+1))) { /* sub double quotes back in */
-				*p = '"';
-			} else if(p > &s[2] && *(p-2) == '@') { *(p-2) = '.'; } /* ('@' => '.') if mid-sentence abbreviation */
+			} else if(DUB_QUOTE(*p, *(p-1), *(p+1))) { *p = '"'; } /* sub double quotes back in */
+			if(p > &s[2] && *(p-2) == '@') *(p-2) = '.'; /* ('@' => '.') if mid-sentence abbreviation */
 			p++;
 		}
 		if(s[strlen(s)-1] == '@') s[strlen(s)-1] = '.'; /* in case file ends with an abbreviation */
