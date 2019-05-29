@@ -274,20 +274,20 @@ void err_info() {
 ******************************************************************************/
 void hash_pack_handler(int PASSED_STR_TOTAL, char passed_str[], unsigned char packed_uch[]) {
 	int pack_ch_idx[] = {0,0,1,1,1,2,2,3,3,3,4,4}, unpack_uch_idx[] = {0,1,1,2,3,3,4,4,5,6,6,7}, bit_shift_nums[] = {3,2,6,1,4,4,1,7,2,3,5,0};
-	int pack_shift_iterations = BITSHIFT_ITERATION_TOTAL(PASSED_STR_TOTAL), shift_left[] = {1,0,1,1,0,1,0,1,1,0,1,1};
+	int i, j, pack_shift_iterations = BITSHIFT_ITERATION_TOTAL(PASSED_STR_TOTAL), shift_left[] = {1,0,1,1,0,1,0,1,1,0,1,1};
 	unsigned char passed_uch[MAX_CH];
 	init_compr_arr(packed_uch); /* init packed_uch with 0's to clear garbage memory for bitpacking */
 	hash_hide(PASSED_STR_TOTAL, passed_str, passed_uch);
-	for(int i = 0, j = 0; i < pack_shift_iterations; i++, j++) { /* BIT-PACK TEXT */
+	for(i = 0, j = 0; i < pack_shift_iterations; i++, j++) { /* BIT-PACK TEXT */
 		if(NEED_TO_UPDATE_ARRS(i)) increment_idx_shift_arrs(&j, pack_ch_idx, unpack_uch_idx); /* UPDATE CHAR ACCESS IDXS */
 		if(shift_left[j] == 1) { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] << bit_shift_nums[j]) & 255); }
 		else { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] >> bit_shift_nums[j]) & 255); }
 	}
 }
 void unpack_dehash_handler(int PASSED_STR_TOTAL, char unpacked_str[], unsigned char packed_uch[], unsigned char unpacked_uch[]) {
-	int unpack_shift_iterations = BITSHIFT_ITERATION_TOTAL(PASSED_STR_TOTAL), shift_right[] = {1,0,1,1,0,1,0,1,1,0,1,1};
+	int i, j, unpack_shift_iterations = BITSHIFT_ITERATION_TOTAL(PASSED_STR_TOTAL), shift_right[] = {1,0,1,1,0,1,0,1,1,0,1,1};
 	int pack_ch_idx[] = {0,0,1,1,1,2,2,3,3,3,4,4}, unpack_uch_idx[] = {0,1,1,2,3,3,4,4,5,6,6,7}, bit_shift_nums[] = {3,2,6,1,4,4,1,7,2,3,5,0};
-	for(int i = 0, j = 0; i < unpack_shift_iterations; i++, j++) { /* BIT-UNPACK TEXT */
+	for(i = 0, j = 0; i < unpack_shift_iterations; i++, j++) { /* BIT-UNPACK TEXT */
 		if(NEED_TO_UPDATE_ARRS(i)) increment_idx_shift_arrs(&j, pack_ch_idx, unpack_uch_idx); /* UPDATE CHAR ACCESS IDXS */
 		if(shift_right[j] == 1) { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] >> bit_shift_nums[j]) & 31)); }
 		else { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] << bit_shift_nums[j]) & 31)); }
@@ -297,21 +297,21 @@ void unpack_dehash_handler(int PASSED_STR_TOTAL, char unpacked_str[], unsigned c
 	modify_str(unpacked_str, 0); /* revert unpacked_str back to pre-compression format */
 }
 void hash_hide(int len, char passed_str[], unsigned char passed_uch[]) {
-	for(int i = 0; i < len; i++) passed_uch[i] = hide_hash_value(passed_str[i]);
+	int i; for(i = 0; i < len; i++) passed_uch[i] = hide_hash_value(passed_str[i]);
 }
 void dehash_show(int len, char unpacked_str[], unsigned char unpacked_uch[]) {
-	for(int i = 0; i < len; i++) unpacked_str[i] = (char)show_dehash_value(unpacked_uch[i]);
+	int i; for(i = 0; i < len; i++) unpacked_str[i] = (char)show_dehash_value(unpacked_uch[i]);
 }
 unsigned char hide_hash_value(char c) { /* lowercase . ' _ - ! ? */
 	unsigned char ch = (unsigned char)c, from[] = {'.','\'','_','-','!','?'}, to[] = {26,27,28,29,30,31};
 	if(IS_LOW_CH(ch)) return ch - 'a'; /* 'a' => 0, 'z' => 25 */
-	for(int i = 0; i < 6; i++) if(ch == from[i]) return to[i];
+	int i; for(i = 0; i < 6; i++) if(ch == from[i]) return to[i];
 	return 0;
 }
 unsigned char show_dehash_value(unsigned char ch) {
 	unsigned char from[] = {26,27,28,29,30,31}, to[] = {'.','\'','_','-','!','?'};
 	if(ch >= 0 && ch <= 25) return ch + 'a'; /* 0 => 'a', 25 => 'z' */
-	for(int i = 0; i < 6; i++) if(ch == from[i]) return to[i];
+	int i; for(i = 0; i < 6; i++) if(ch == from[i]) return to[i];
 	return 0;
 }
 /******************************************************************************
@@ -327,10 +327,10 @@ int BITSHIFT_ITERATION_TOTAL(int PASSED_STR_TOTAL) {
 /******************************************************************************
 * ARRAY INTIALIZATION AND INCREMENTING FUNCTION
 ******************************************************************************/
-void init_decompr_arr(char decompr[]) { for(int i = 0; i < MAX_CH; i++) decompr[i] = 0; }
-void init_compr_arr(unsigned char compr[]) { for(int i = 0; i < MAX_CH; i++) compr[i] = 0; }
+void init_decompr_arr(char decompr[]) { int i; for(i = 0; i < MAX_CH; i++) decompr[i] = 0; }
+void init_compr_arr(unsigned char compr[]) { int i; for(i = 0; i < MAX_CH; i++) compr[i] = 0; }
 void increment_idx_shift_arrs(int *j, int pack_ch_idx[], int unpack_uch_idx[]) {
-	for(int k = 0; k < 12; k++) { pack_ch_idx[k] += 5; unpack_uch_idx[k] += 8; }
+	int k; for(k = 0; k < 12; k++) { pack_ch_idx[k] += 5; unpack_uch_idx[k] += 8; }
 	*j = 0;
 }
 /******************************************************************************
@@ -450,12 +450,12 @@ void hide_adjust_cw_keys(char s[]) {
 	}
 }
 void show_adjust_cw_keys(unsigned char length) {
-	for(int i = 0; i < length; i++) { shift_up_cw_keys((int)cw_shift_up_idxs[i]); CW_LEN--; }
+	int i; for(i = 0; i < length; i++) { shift_up_cw_keys((int)cw_shift_up_idxs[i]); CW_LEN--; }
 }
 void shift_up_cw_keys(int idx) {
-	for(int i = idx; i < (CW_LEN - 1); i++) { strcpy(cw_keys[i],cw_keys[i+1]); strcpy(cw_word[i],cw_word[i+1]);}
+	int i; for(i = idx; i < (CW_LEN - 1); i++) { strcpy(cw_keys[i],cw_keys[i+1]); strcpy(cw_word[i],cw_word[i+1]);}
 }
 void modify_key(char *modded_key, char *key) {
 	strcpy(modded_key, key);
-	for(int i = 0; i < strlen(key); i++) if(key[i] == '_') modded_key[i] = ' ';
+	int i; for(i = 0; i < strlen(key); i++) if(key[i] == '_') modded_key[i] = ' ';
 }
