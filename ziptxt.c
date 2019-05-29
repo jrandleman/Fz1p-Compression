@@ -205,7 +205,7 @@ void err_info() {
 void show_txt_compressed(char *arg2, char *arg1) {
 	FILE *fp;
 	char s_buffer[150];
-	int s_chunk_number = 0;
+	int s_chunk_number = 0, i;
 	myAssert((fp = fopen(arg1, "r")), "\n\n(!!!) ERROR READING COMPRESSED TEXT FILE (!!!)\n");
 	while(fgets(s_buffer, 150, fp) > 0) { /* GET COMPRESSED TEXT */
 		char *p = s_buffer;
@@ -220,7 +220,7 @@ void show_txt_compressed(char *arg2, char *arg1) {
 		strcpy(s_compress_storage[s_chunk_number], s_buffer);
 		s_chunk_number++;
 	}
-	for(int i = 0; i < s_chunk_number; i++) {
+	for(i = 0; i < s_chunk_number; i++) {
 		char *p = s_max_buffer;
 		if(i != 0) while(*p != '\0') p++;
 		sprintf(p, "%s", s_compress_storage[i]);
@@ -253,8 +253,9 @@ void read_txt_engl(char *arg2, char *arg1) {
 }
 void write_txt_compressed(char *arg1) {
 	FILE *fp;
+	int i;
 	myAssert((fp = fopen(arg1, "w")), "\n\n(!!!) ERROR WRITING COMPRESSED TEXT TO FILE (!!!)\n");
-	for(int i = 0; i < chunk_count; i++) {
+	for(i = 0; i < chunk_count; i++) {
 		fwrite(s_compress_storage[i], sizeof(char), strlen(s_compress_storage[i]), fp);
 		fwrite(&nchar, sizeof(char), 1, fp);
 	}
@@ -285,7 +286,8 @@ void read_pass_ss_keys(char *arg2) {
 	remove(filename); /* delete password txt file once ss keys retrieved */
 }
 void write_ss_keys_to_single_str(char ss[][151], int ss_total, char *arg2) {
-	for(int i = 0; i < ss_total; i++) {
+	int i;
+	for(i = 0; i < ss_total; i++) {
 		sprintf(&ss_single_str[strlen(ss_single_str)], "%s", ss[i]);
 		if(i < ss_total - 1) sprintf(&ss_single_str[strlen(ss_single_str)], "%c", '\t');
 	}
@@ -323,7 +325,7 @@ int delta_sub_common_words(char *s, int total_len, char remove[][50], char inser
 }
 void print_cw_used(int sub_size) {
 	printf("SUBSTITUTIONS:\n");
-	for(int i = 0; i < sub_size; i++) printf("=> %s: %s\n", cw_keys[cw_idxs[i]], cw_word[cw_idxs[i]]);
+	int i; for(i = 0; i < sub_size; i++) printf("=> %s: %s\n", cw_keys[cw_idxs[i]], cw_word[cw_idxs[i]]);
 }
 /******************************************************************************
 * SUB NUMBER OF SEQUENTIAL LETTERS & VISE-VERSA
@@ -466,14 +468,14 @@ void hide_adjust_cw_keys(char s[]) {
 	}
 }
 void show_adjust_cw_keys(unsigned char length) {
-	for(int i = 0; i < length; i++) { shift_up_cw_keys((int)cw_shift_up_idxs[i]); CW_LEN--; }
+	int i; for(i = 0; i < length; i++) { shift_up_cw_keys((int)cw_shift_up_idxs[i]); CW_LEN--; }
 }
 void shift_up_cw_keys(int idx) {
-	for(int i = idx; i < (CW_LEN - 1); i++) { strcpy(cw_keys[i],cw_keys[i+1]); strcpy(cw_word[i],cw_word[i+1]);}
+	int i; for(i = idx; i < (CW_LEN - 1); i++) { strcpy(cw_keys[i],cw_keys[i+1]); strcpy(cw_word[i],cw_word[i+1]);}
 }
 void modify_key(char *modded_key, char *key) {
 	strcpy(modded_key, key);
-	for(int i = 0; i < strlen(key); i++) if(key[i] == '_') modded_key[i] = ' ';
+	int i; for(i = 0; i < strlen(key); i++) if(key[i] == '_') modded_key[i] = ' ';
 }
 /******************************************************************************
 * DE/COMPRESSION FUNCTIONS
@@ -541,12 +543,12 @@ int ss_ch_index(char ch_c_idx) {
 		return (int)(ch_c_idx - 27);
 	}
 	char is[] = "01#$@[]^", diff[] = {22,22,4,4,28,54,50,50};
-	for(int i = 0; i < 8; i++) if(ch_c_idx == is[i]) return (int)(ch_c_idx - diff[i]);
+	int i; for(i = 0; i < 8; i++) if(ch_c_idx == is[i]) return (int)(ch_c_idx - diff[i]);
 	return (int)(ch_c_idx - 83);
 }
 char adjust_ref_char(char ss_ref_ch) {
 	char is[] = "07#<@][{", diff[] = {-42,6,-22,24,2,2,27,29};
-	for(int i = 0; i < 8; i++) if(ss_ref_ch == is[i]) return (char)(ss_ref_ch - diff[i]);
+	int i; for(i = 0; i < 8; i++) if(ss_ref_ch == is[i]) return (char)(ss_ref_ch - diff[i]);
 	return (char)(ss_ref_ch - 1);
 }
 /******************************************************************************
@@ -555,8 +557,8 @@ char adjust_ref_char(char ss_ref_ch) {
 void store_ss(char ss[][151], char *p, int ss_idx) { sprintf(ss[ss_idx], "%c%c", *p, *(p + 1)); }
 int clean_ss(char ss[][151], char *s, int ss_total) {
 	char *p;
-	int nest_idx = 0, nested_ss[45]; /* nested ss only ref'd by other ss, arr holds their idxs */
-	for(int i = 0; i < ss_total; i++) {
+	int nest_idx = 0, nested_ss[45], i; /* nested ss only ref'd by other ss, arr holds their idxs */
+	for(i = 0; i < ss_total; i++) {
 		p = s;
 		while(*p != '\0') { if(*p == ss_refs[i]) { break; } p++; }
 		/* if ss_refs[i] !in s, i == nested ss ref idx */
@@ -567,10 +569,11 @@ int clean_ss(char ss[][151], char *s, int ss_total) {
 	return (ss_total - nest_idx); /* actual ss total = original ss total - nested ss total */
 }
 void splice_ss(char ss[][151], int nested_ss[45], int nest_total, int ss_total) {
-	for(int i = 0; i < nest_total; i++) { /* traverse nested ss array */
-		for(int j = 0; j < ss_total; j++) { /* traverse ss array */
+	int i, j, l;
+	for(i = 0; i < nest_total; i++) { /* traverse nested ss array */
+		for(j = 0; j < ss_total; j++) { /* traverse ss array */
 			int curr_ss_len = strlen(ss[j]);
-			for(int l = 0; l < curr_ss_len; l++) { /* traverse ss */
+			for(l = 0; l < curr_ss_len; l++) { /* traverse ss */
 				if(ss[j][l] == ss_refs[nested_ss[i]]) { /* if ss has nested ss reference */
 					char nested_elem[151]; /* clone to hold nested ref value */
 					strcpy(nested_elem, ss[nested_ss[i]]); /* clone nested ref val */
@@ -582,14 +585,14 @@ void splice_ss(char ss[][151], int nested_ss[45], int nest_total, int ss_total) 
 	}
 }
 void trim_ss(char ss[][151], char *s, int nested_ss[45], int nest_total, int ss_total) {
-	int i, j;
+	int i, j, l;
 	for(i = 0; i < nest_total; i++) { /* delete nested-ss */
 		char *p = s;
 		for(j = nested_ss[i]; j < (ss_total - 1); j++) {
 			strcpy(ss[j], ss[j + 1]); /* shift up non-nested ss to delete nested-ss */
 			int curr_ss_len = strlen(ss[j]);
 			/* ss-ss refs -= 1 ss_refs val per del  */
-			for(int l = 0; l < curr_ss_len; l++) if(is_ss_ref((nested_ss[i] + 1), ss[j][l]) == 1) ss[j][l] = adjust_ref_char(ss[j][l]);
+			for(l = 0; l < curr_ss_len; l++) if(is_ss_ref((nested_ss[i] + 1), ss[j][l]) == 1) ss[j][l] = adjust_ref_char(ss[j][l]);
 		}
 		for (int k = i; k < nest_total; k++) nested_ss[k] = adjust_ref_char(nested_ss[k]); /* nested-ss idxs -= 1 ss_refs val per del */
 		ss[j][0] = '\0';
@@ -601,19 +604,19 @@ void trim_ss(char ss[][151], char *s, int nested_ss[45], int nest_total, int ss_
 }
 void print_ss(char ss[][151], int ss_total) {
 	printf("COMPR SUBSTRS:\n");
-	for(int i = 0; i < ss_total; i++) printf("=> %c: %s\n", ss_refs[i], ss[i]);
+	int i; for(i = 0; i < ss_total; i++) printf("=> %c: %s\n", ss_refs[i], ss[i]);
 }
 /******************************************************************************
 * SS_KEY BIT-PACKING COMPRESSION/DECOMPRESSION FUNCTIONS
 ******************************************************************************/
 int pack_ss_keys(char *arg2) {
 	/* PACK SS_KEYS */
-	int passed_length = strlen(ss_single_str), char_total = SS_KEY_UCH_TOT(strlen(ss_single_str));
+	int passed_length = strlen(ss_single_str), char_total = SS_KEY_UCH_TOT(strlen(ss_single_str)), i, j, k;
 	unsigned char cw_write_length = FULL_CW_LEN - CW_LEN, packed_str[char_total], passed_uch[passed_length];
 	unsigned short char_total_uch = (unsigned short)char_total, cap_len = caps.length;
 	bpack_wipe_garbage_mem(packed_str, char_total); /* init with 0's to clear garbage memory pre-bitpacking */
 	swap_str_sign(ss_single_str, passed_uch, passed_length, 1); /* convert passed string into uchar str */
-	for(int i = 0, j = 0, k = 0; i < char_total; i++, j++, k++) { /* PACK CHARS */
+	for(i = 0, j = 0, k = 0; i < char_total; i++, j++, k++) { /* PACK CHARS */
 		packed_str[i] = (((passed_uch[k] << (j + 1)) | (passed_uch[k + 1] >> (6 - j))) & 255);
 		if((i + 1) % 7 == 0 && i != 0) { j = -1; k++; }
 	}
@@ -646,7 +649,7 @@ void unpack_ss_keys(char *arg2) {
 	fread(&cap_len, sizeof(unsigned short), 1, fp); /* read capitals length */
 	fread(caps.cap_idxs, sizeof(unsigned short), cap_len, fp); /* read capitals array */
 	fread(&char_total_uch, sizeof(unsigned short), 1, fp); /* read ss_keys compr length */
-	int char_total = (int)char_total_uch;
+	int char_total = (int)char_total_uch, i, j, k;
 	int str_total = SS_KEY_STR_TOT(char_total);
 	unsigned char packed_str[char_total], unpacked_uch[str_total];
 	fread(packed_str, sizeof(unsigned char), char_total, fp); /* read ss_keys compr array */
@@ -655,9 +658,9 @@ void unpack_ss_keys(char *arg2) {
 	show_adjust_cw_keys(cw_read_length);
 	bpack_wipe_garbage_mem(unpacked_uch, str_total);
 	/* UNPACK SS_KEYS */
-	for(int i = 0, k = 0; i < str_total && k < char_total; i++, k++) { /* UNPACK PACKED CHARS */
+	for(i = 0, k = 0; i < str_total && k < char_total; i++, k++) { /* UNPACK PACKED CHARS */
 		unpacked_uch[i] = ((packed_str[k] >> 1) & 127);
-		for(int j = 0; j < 6 && i < str_total && k < char_total; j++, i++, k++) {
+		for(j = 0; j < 6 && i < str_total && k < char_total; j++, i++, k++) {
 			unpacked_uch[i + 1] = (((packed_str[k] << (6 - j)) | (packed_str[k + 1] >> (j + 2))) & 127); }
 		if(i < str_total) unpacked_uch[++i] = ((packed_str[k]) & 127);
 	}
@@ -669,9 +672,9 @@ void unpack_ss_keys(char *arg2) {
 	fprintf(fp, "%s", unpacked_str);
 	fclose(fp);
 }
-void bpack_wipe_garbage_mem(unsigned char arr[], int length) { for(int i = 0; i < length; i++) arr[i] = 0; }
+void bpack_wipe_garbage_mem(unsigned char arr[], int length) { int i; for(i = 0; i < length; i++) arr[i] = 0; }
 void swap_str_sign(char s[], unsigned char us[], int length, int sign_flag) { 
 	if(sign_flag == 1) { /* make unsigned */
-		for(int i = 0; i < length; i++) us[i] = (unsigned char)s[i];
-	} else { for(int i = 0; i < length; i++) s[i] = (char)us[i]; } /* make signed */
+		int i; for(i = 0; i < length; i++) us[i] = (unsigned char)s[i];
+	} else { int i; for(i = 0; i < length; i++) s[i] = (char)us[i]; } /* make signed */
 }
