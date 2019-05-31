@@ -22,8 +22,7 @@
 #define CEIL(N,D) (1 + (((N) - 1) / (D)))
 #define SS_KEY_UCH_TOT(str_total) ((str_total) - ((str_total) / 8))
 #define SS_KEY_STR_TOT(uch_total) ((uch_total) + ((uch_total) / 7))
-/* CUSTOM ASSERT FUNCTIONS */
-void myAssert(void *condition, char message[]){if(condition==NULL){printf("%s",message);exit(0);}}
+#define myAssert(C,M) ({if(C==NULL){printf("\n=> myAssert Failed: %s, %d, %s\n%s\n",__FUNCTION__,__LINE__,#C,M);exit(0);}})
 /* HIDE / SHOW FUNCTIONS */
 void hide(char *, char *);
 void show(char *, char *);
