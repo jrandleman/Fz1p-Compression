@@ -26,8 +26,7 @@
 #define IS_COMMA(X,Y,Z) ((X) == '-' && ((Y) == '_' || (Y) == '\'') && (Z) != ' ')
 #define IS_I_OR_C_(X,Y) (((X)=='c' || (X)=='i') && ((Y)=='_' || (Y)=='\n'))
 #define DUB_QUOTE(X,Y,Z) ((X) == '\'' && ((Y) == ' ' || (Z) == '_' || IS_PUNC((Z))))
-/* CUSTOM ASSERT FUNCTIONS */
-void myAssert(void *condition, char message[]){if(condition==NULL){printf("%s",message);exit(0);}}
+#define myAssert(C,M) ({if(C==NULL){printf("\n=> myAssert Failed: %s, %d, %s\n%s\n",__FUNCTION__,__LINE__,#C,M);exit(0);}})
 /* MAIN HIDE / SHOW HANDLERS */
 void HIDE_HANDLER(char *, char *);
 void SHOW_HANDLER(char *, char *);
