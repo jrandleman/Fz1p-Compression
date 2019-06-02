@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
 		strcpy(arg1, argv[2]); strcpy(arg2, argv[3]);
 		(strcmp(argv[1], "-l") == 0) ? (zip_info = 1) : (printf("\n\n(!!!) WRONG INFO FLAG => -l (!!!)\n\n"));
 	} else { strcpy(arg1, argv[1]); strcpy(arg2, argv[2]); }
-	if(HAS_EXTENSION(arg1, ".TZ1P.txt")) { show(arg2, arg1); }
+	if(HAS_EXTENSION(arg1, ".TZ1P.txt") || HAS_EXTENSION(arg1, ".tz1p.txt")) { show(arg2, arg1); }
 	else if(HAS_EXTENSION(arg1, ".txt")) { hide(arg2, arg1); }
 	else { err_info(); }
 	return 0;
