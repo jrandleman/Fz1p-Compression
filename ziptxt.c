@@ -10,6 +10,8 @@
 #include <ctype.h>
 #define MAX_CH 1000000
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)],APPEND);})
+#define RMV_FILENAME_EXTENSION(FNAME,LEN) (FNAME[strlen(FNAME)-LEN]='\0')
+#define HAS_EXTENSION(S,EXT) (strcmp(&S[strlen(S)-strlen(EXT)], EXT) == 0)
 #define IS_CAP_CH(ch_c_inst) ((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z')
 #define IS_LOW_CH(CH) ((CH) >= 'a' && (CH) <= 'z')
 #define IS_ALF_CH(CH) (IS_CAP_CH((CH)) || IS_LOW_CH((CH)))
@@ -46,7 +48,6 @@ void delta_txt_crypt(char *, char *);
 /* STRING EDITING FUNCITONS */
 void rm_nxt_ch(char *, int);
 void modify_str(char *, int);
-void lowify_str(char []);
 /* CAPITAL WORD INDEX STORAGE */
 void delta_sub_capital_letters(char [], int);
 typedef struct capitalized_words {
@@ -150,24 +151,26 @@ unsigned char CW_LEN = FULL_CW_LEN, cw_shift_up_idxs[FULL_CW_LEN]; /* store indi
 char ss_array_matrix[300][45][151], s_compress_storage[300][151], s_max_buffer[MAX_CH], ss_single_str[MAX_CH];
 char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ01789#$<=>@[]^{|}~\0", nchar = '\n';
 int cw_idxs[FULL_CW_LEN], chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_info = 0;
-int main(int argc, char *argv[]) { /* may not need  */
-	if(argc < 4) err_info();
-	lowify_str(argv[3]);
-	if(argc == 5) {
-		lowify_str(argv[4]);
-		if(strcmp(argv[4], "info") == 0) zip_info = 1;
-	}
-	if(strcmp(argv[3], "hide") == 0) {
-		hide(argv[2], argv[1]);
-	} else if(strcmp(argv[3], "show") == 0) {
-		show(argv[2], argv[1]);
-	} else { err_info(); }
+int main(int argc, char *argv[]) {
+	if(argc < 3 || argc > 4) err_info();
+	char arg1[75], arg2[75];
+	if(argc == 4) {
+		strcpy(arg1, argv[2]); strcpy(arg2, argv[3]);
+		(strcmp(argv[1], "-l") == 0) ? (zip_info = 1) : (printf("\n\n(!!!) WRONG INFO FLAG => -l (!!!)\n\n"));
+	} else { strcpy(arg1, argv[1]); strcpy(arg2, argv[2]); }
+	if(HAS_EXTENSION(arg1, ".TZ1P.txt")) { show(arg2, arg1); }
+	else if(HAS_EXTENSION(arg1, ".txt")) { hide(arg2, arg1); }
+	else { err_info(); }
 	return 0;
 }
 /******************************************************************************
 * HIDE / SHOW FUNCTIONS
 ******************************************************************************/
 void hide(char *arg2, char *arg1) {
+	char arg1seed[75], filename[75];
+	strcpy(arg1seed, arg1);
+	RMV_FILENAME_EXTENSION(arg1seed,strlen(".txt"));
+	ADD_FILENAME_EXTENSION(arg1seed,filename,".TZ1P.txt");
 	read_txt_engl(arg2, arg1); /* process text file in 150 char chunks */
 	int ss_keys_byte = pack_ss_keys(arg2);
 	write_txt_compressed(arg1); /* write compressed string to text file */
@@ -175,26 +178,30 @@ void hide(char *arg2, char *arg1) {
 	compressed_bytes += ss_keys_byte;
 	float bytes_saved = 100*(1.000000 - ((float)compressed_bytes)/((float)original_bytes));
 	printf("\n==============================================================================");
-	printf("\n%s => COMPRESSED AND ENCRYPTED!\n", arg1);
+	printf("\n%s ==COMPRESS=ENCRYPT=> %s\n", arg1, filename);
 	printf(">> BYTES => UNCOMPRESSED: %d, COMPRESSED: %d, COMPRESSION RATE: %.2f%%\n", original_bytes, compressed_bytes, bytes_saved);
 	printf("==============================================================================\n\n");
 }
 void show(char *arg2, char *arg1) {
-	char filename[75];
-	ADD_FILENAME_EXTENSION(arg2,filename,"_sskey.bin");
+	char filename[75], arg1compr[75], arg1dcmpr[75];
+	strcpy(arg1compr, arg1);
+	ADD_FILENAME_EXTENSION(arg2,filename,"_sskey.TZ1P");
 	unpack_ss_keys(arg2);
 	read_pass_ss_keys(arg2);
 	show_txt_compressed(arg2, arg1);
 	printf("\n>>> FILE REMOVED: %s\n", filename);
+	ADD_FILENAME_EXTENSION(arg1,arg1compr,".TZ1P.txt");
+	ADD_FILENAME_EXTENSION(arg1,arg1dcmpr,".txt");
 	printf("\n==============================================================================");
-	printf("\n>> %s => DECOMPRESSED AND DECRYPTED!\n", arg1);
+	printf("\n>> %s ==DECOMPRESS=DECRYPT=> %s\n", arg1compr, arg1dcmpr);
 	printf("==============================================================================\n\n");
 }
 void err_info() {
 	printf("\n============================= INVALID EXECUTION! =============================\n");
-	printf("$ gcc -o ziptxt ziptxt.c\n$ ./ziptxt textfile.txt yourpassword hide/show\n");
+	printf("$ gcc -o ziptxt ziptxt.c\n<ENCRYPT/COMPRESS>   $ ./ziptxt filename.txt yourpassword\n");
+	printf("<DECRYPT/DECOMPRESS> $ ./ziptxt filename.TZ1P.txt yourpassword\n");
 	printf("==============================================================================");
-	printf("\n=> ENCRYPTION/COMPRESSION INFORMATION: $ ... hide/show info\n");
+	printf("\n=> ENCRYPT/COMPRESS INFO: $ ./ziptxt -l filename.extension yourpassword\n");
 	printf("==============================================================================\n\n");
 	exit(0);
 }
@@ -203,7 +210,7 @@ void err_info() {
 ******************************************************************************/
 void show_txt_compressed(char *arg2, char *arg1) {
 	FILE *fp;
-	char s_buffer[150];
+	char s_buffer[150], filename[75];
 	int s_chunk_number = 0, i;
 	myAssert((fp = fopen(arg1, "r")), "\n\n(!!!) ERROR READING COMPRESSED TEXT FILE (!!!)\n");
 	while(fgets(s_buffer, 150, fp) > 0) { /* GET COMPRESSED TEXT */
@@ -225,9 +232,12 @@ void show_txt_compressed(char *arg2, char *arg1) {
 		sprintf(p, "%s", s_compress_storage[i]);
 	}
 	fclose(fp);
+	remove(arg1);
 	/* PUT DECOMPRESSED TEXT */
 	modify_str(s_max_buffer, 0); /* '_' => ' ' */
-	myAssert((fp = fopen(arg1, "w")), "\n\n(!!!) ERROR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
+	RMV_FILENAME_EXTENSION(arg1,strlen(".TZ1P.txt"));
+	ADD_FILENAME_EXTENSION(arg1,filename,".txt");
+	myAssert((fp = fopen(filename, "w")), "\n\n(!!!) ERROR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
 	fwrite(s_max_buffer, sizeof(char), strlen(s_max_buffer), fp);
 	fclose(fp);
 	return;
@@ -236,12 +246,12 @@ void read_txt_engl(char *arg2, char *arg1) {
 	char ss[45][151], s_chunk[151], temp_max_buff[MAX_CH];
 	int ret;
 	FILE *fp;
-	myAssert((fp = fopen(arg1, "r")), "\n\n(!!!) ERROR READING TEXT FILE (1) (!!!)\n\n"); /* FILL CAPITALS/ADJUST CW */
+	myAssert((fp = fopen(arg1, "r")), "\n\n(!!!) ERROR READING TEXT FILE (CAPITAL STORING) (!!!)\n\n"); /* FILL CAPITALS/ADJUST CW */
 	fread(temp_max_buff, sizeof(char), MAX_CH, fp);
 	fclose(fp);
 	delta_sub_capital_letters(temp_max_buff, 1);
 	hide_adjust_cw_keys(temp_max_buff);
-	myAssert((fp = fopen(arg1, "r")), "\n\n(!!!) ERROR READING TEXT FILE (2) (!!!)\n\n"); /* COMPRESS TEXT */
+	myAssert((fp = fopen(arg1, "r")), "\n\n(!!!) ERROR READING TEXT FILE (TEXT STORING) (!!!)\n\n"); /* COMPRESS TEXT */
 	while((ret = fread(s_chunk, sizeof(char), 150, fp)) > 0) {
 		s_chunk[ret] = '\0';
 		original_bytes += ret;
@@ -253,12 +263,17 @@ void read_txt_engl(char *arg2, char *arg1) {
 void write_txt_compressed(char *arg1) {
 	FILE *fp;
 	int i;
-	myAssert((fp = fopen(arg1, "w")), "\n\n(!!!) ERROR WRITING COMPRESSED TEXT TO FILE (!!!)\n");
+	char arg1seed[75], filename[75];
+	strcpy(arg1seed, arg1);
+	RMV_FILENAME_EXTENSION(arg1seed,strlen(".txt"));
+	ADD_FILENAME_EXTENSION(arg1seed,filename,".TZ1P.txt");
+	myAssert((fp = fopen(filename, "w")), "\n\n(!!!) ERROR WRITING COMPRESSED TEXT TO FILE (!!!)\n");
 	for(i = 0; i < chunk_count; i++) {
 		fwrite(s_compress_storage[i], sizeof(char), strlen(s_compress_storage[i]), fp);
 		fwrite(&nchar, sizeof(char), 1, fp);
 	}
 	fclose(fp);
+	remove(arg1);
 }
 /******************************************************************************
 * BINARY FILE HANDLER FUNCTIONS
@@ -311,10 +326,7 @@ int delta_sub_common_words(char *s, int total_len, char remove[][50], char inser
 				for(j = 0; j < word_len; j++) if(*(p + j) != remove[i][j]) break;
 				if(j == word_len) { /* if word in s is common word */
 					splice_str(p, insert[i], word_len, total_len);
-					if(zip_info == 1 && found == 0) { /* store common words for 'info' command */
-						cw_idxs[count++] = i;
-						found++;
-					}
+					if(zip_info == 1 && found == 0) { cw_idxs[count++] = i; found++; } /* store common words for 'info' command */
 				}
 			} else if(*p == '`' || *p == '!' || *p == '?') { p++; } /* avoid chaining words: themself => !uself => !?slf */
 			p++;
@@ -421,10 +433,6 @@ void modify_str(char *s, int sp_flag) {
 		delta_sub_capital_letters(s, 0);
 	}
 }
-void lowify_str(char s[]) {
-	char *p = s;
-	while(*p != '\0') { *p = tolower(*p); p++; }
-}
 /******************************************************************************
 * CAPITAL WORD INDEX STORAGE
 ******************************************************************************/
@@ -501,10 +509,7 @@ int s_compress(char ss[][151], char *s) { /* returns # of substrings */
 	while(*(p + 2) != '\0') { /* first ss instance */
 		r = p + 2;
 		found = 0;
-		while(*(r + 1) != '\0') { /* second ss instance */
-			if(*r == *p && *(r + 1) == *(p + 1)) { found++; rm_nxt_ch(r, ss_idx); }
-			r++;
-		}
+		while(*(r+1) != '\0') { if(*r == *p && *(r+1) == *(p+1)) { found++; rm_nxt_ch(r, ss_idx); } r++; } /* second ss instance */
 		if(found > 0) { /* if ss found, restart search for compounded ss */
 			store_ss(ss, p, ss_idx);
 			rm_nxt_ch(p, ss_idx);
@@ -536,11 +541,8 @@ int is_ss_ref(int start, char ch) {
 	return 0;
 }
 int ss_ch_index(char ch_c_idx) {
-	if(IS_CAP_CH(ch_c_idx) == 1) {
-		return (int)(ch_c_idx - 65);
-	} else if((ch_c_idx >= '7' && ch_c_idx <= '9') || (ch_c_idx >= '<' && ch_c_idx <= '>')) {
-		return (int)(ch_c_idx - 27);
-	}
+	if(IS_CAP_CH(ch_c_idx) == 1) { return (int)(ch_c_idx - 65); }
+	else if((ch_c_idx >= '7' && ch_c_idx <= '9') || (ch_c_idx >= '<' && ch_c_idx <= '>')) { return (int)(ch_c_idx - 27); }
 	char is[] = "01#$@[]^", diff[] = {22,22,4,4,28,54,50,50};
 	int i; for(i = 0; i < 8; i++) if(ch_c_idx == is[i]) return (int)(ch_c_idx - diff[i]);
 	return (int)(ch_c_idx - 83);
@@ -596,8 +598,7 @@ void trim_ss(char ss[][151], char *s, int nested_ss[45], int nest_total, int ss_
 		for (int k = i; k < nest_total; k++) nested_ss[k] = adjust_ref_char(nested_ss[k]); /* nested-ss idxs -= 1 ss_refs val per del */
 		ss[j][0] = '\0';
 		while(*p != '\0') { /* s ss references -= 1 ss_refs val as per del */
-			if(is_ss_ref((nested_ss[i]+ 1), *p) == 1) *p = adjust_ref_char(*p); /* if *p = nested ref */
-			p++;
+			if(is_ss_ref((nested_ss[i]+ 1), *p) == 1) { *p = adjust_ref_char(*p); } p++;/* if *p = nested ref */
 		}
 	}
 }
@@ -622,7 +623,7 @@ int pack_ss_keys(char *arg2) {
 	/* WRITE PACKED SS KEYS TO FILE */
 	FILE *fp;
 	char filename[75];
-	ADD_FILENAME_EXTENSION(arg2,filename,"_sskey.bin");
+	ADD_FILENAME_EXTENSION(arg2,filename,"_sskey.TZ1P");
 	myAssert((fp = fopen(filename, "wb")),"\n (!!!) ERROR WRITING PACKED SS KEYS TO BINARY FILE (!!!) \n");
 	fwrite(&cw_write_length, sizeof(unsigned char), 1, fp); /* write modified cw_keys idxs length */
 	fwrite(cw_shift_up_idxs, sizeof(unsigned char), cw_write_length, fp); /* write modified cw_keys idxs array */
@@ -639,7 +640,7 @@ void unpack_ss_keys(char *arg2) {
 	unsigned short char_total_uch, cap_len;
 	unsigned char cw_read_length;
 	char filename[75], txtfilename[75], unpacked_str[MAX_CH];
-	ADD_FILENAME_EXTENSION(arg2,filename,"_sskey.bin");
+	ADD_FILENAME_EXTENSION(arg2,filename,"_sskey.TZ1P");
 	ADD_FILENAME_EXTENSION(arg2,txtfilename,"_sskey.txt");
 	FILE *fp;
 	myAssert((fp = fopen(filename, "rb")),"\n (!!!) ERROR READING PACKED SS KEYS FROM BINARY FILE (!!!) \n");
@@ -673,7 +674,6 @@ void unpack_ss_keys(char *arg2) {
 }
 void bpack_wipe_garbage_mem(unsigned char arr[], int length) { int i; for(i = 0; i < length; i++) arr[i] = 0; }
 void swap_str_sign(char s[], unsigned char us[], int length, int sign_flag) { 
-	if(sign_flag == 1) { /* make unsigned */
-		int i; for(i = 0; i < length; i++) us[i] = (unsigned char)s[i];
-	} else { int i; for(i = 0; i < length; i++) s[i] = (char)us[i]; } /* make signed */
+	if(sign_flag == 1) { int i; for(i = 0; i < length; i++) us[i] = (unsigned char)s[i]; } /* make unsigned */
+	else { int i; for(i = 0; i < length; i++) s[i] = (char)us[i]; } /* make signed */
 }
