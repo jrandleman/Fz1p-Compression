@@ -10,9 +10,9 @@ $ gcc -o fzip fzip.c</br>
 
 $ gcc -o ziptxt ziptxt.c</br>
 \<ENCRYPT-COMPRESSOR> $ ./ziptxt filename.txt yourpassword</br>
-\<DECRYPT-DECOMPRESS> $ ./ziptxt filename.TZ1P.txt yourpassword</br>
-* _unique password per text file!_
+\<DECRYPT-DECOMPRESS> $ ./ziptxt filename.TZ1P.txt yourpassword
 
+* _unique password per text file!_
 * Enter \<-l> to print compression/encryption information during run:
   * $ ./fzip -l ...
   * $ ./ziptxt -l ...
