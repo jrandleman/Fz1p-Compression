@@ -11,7 +11,9 @@
 #define MAX_CH 1000000
 #define COMPR_MEM(UCH_TOT,CAP_SIZE) (5 + (FULL_CW_LEN - CW_LEN) + (UCH_TOT) + (2 * (CAP_SIZE))) /* key l + key arr + cap l + cap arr + uncompr l + compr arr */
 #define COMPR_RATIO(NEW,OLD) (100*(1.000000 - (((float)NEW)/((float)OLD))))
-#define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)-4],APPEND);})
+#define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)],APPEND);})
+#define RMV_FILENAME_EXTENSION(OLD_FNAME,NEW_FNAME) ({strcpy(NEW_FNAME,OLD_FNAME);NEW_FNAME[strlen(OLD_FNAME)-5]='\0';})
+#define HAS_EXTENSION(S,EXT) (strcmp(&S[strlen(S)-strlen(EXT)], EXT) == 0)
 #define NEED_TO_UPDATE_ARRS(IDX) (IDX != 0 && IDX % 12 == 0)
 #define ITER_NUM(N,X,Y) ((((N + X) / 2) * 3) - Y)
 #define MULT_8(N) ((N) % 8 == 0)
@@ -51,7 +53,6 @@ void init_compr_arr(unsigned char []);
 void increment_idx_shift_arrs(int *, int [], int []);
 /* STRING EDITING FUNCITONS */
 void modify_str(char *, int);
-void lowify_str(char []);
 /* COMMON WORD SUBSTITUTIONS */
 void splice_str(char *, char *, int);
 void delta_sub_common_words(char *, char [][50], char [][50]);
@@ -137,18 +138,18 @@ char cw_word[FULL_CW_LEN][50] = { /* roman numerals */
 unsigned char CW_LEN = FULL_CW_LEN, cw_shift_up_idxs[FULL_CW_LEN]; /* store indices of rmvd cw_keys */
 int zip_info = 0; /* output compresion/decompresion progress */
 int main(int argc, char *argv[]) {
-	if(argc < 3) err_info();
-	char filename[75];
-	lowify_str(argv[2]);
-	ADD_FILENAME_EXTENSION(argv[1], filename, "_fzipped.bin");
-	if(argc == 4) {
-		lowify_str(argv[3]);
-		if(strcmp(argv[3], "info") == 0) zip_info = 1;
-	}
-	if(strcmp(argv[2], "hide") == 0) {
-		HIDE_HANDLER(argv[1], filename);
-	} else if(strcmp(argv[2], "show") == 0) {
-		SHOW_HANDLER(argv[1], filename);
+	if(argc < 2 || argc > 3) err_info();
+	char filename[75], arg1[75];
+	if(argc == 3) {
+		strcpy(arg1, argv[2]);
+		(strcmp(argv[1], "-l") == 0) ? (zip_info = 1) : (printf("\n\n(!!!) WRONG INFO FLAG => -l (!!!)\n\n"));
+	} else { strcpy(arg1, argv[1]); }
+	if(HAS_EXTENSION(arg1, ".txt")) {
+		ADD_FILENAME_EXTENSION(arg1, filename, ".FZ1P");
+		HIDE_HANDLER(arg1, filename);
+	} else if(HAS_EXTENSION(arg1, ".FZ1P")) {
+		RMV_FILENAME_EXTENSION(arg1, filename);
+		SHOW_HANDLER(arg1, filename);
 	} else { err_info(); }
 	return 0;
 }
@@ -180,16 +181,15 @@ void SHOW_HANDLER(char *arg1, char *filename) {
 	char unpacked_str[MAX_CH];
 	int PASSED_STR_TOTAL;
 	unsigned char packed_uch[MAX_CH], unpacked_uch[MAX_CH];
-	read_compr_text(filename, unpacked_str, &PASSED_STR_TOTAL, packed_uch, unpacked_uch);
+	read_compr_text(arg1, unpacked_str, &PASSED_STR_TOTAL, packed_uch, unpacked_uch);
 	/* UNPACK & DEHASH TEXT */
 	unpack_dehash_handler(PASSED_STR_TOTAL, unpacked_str, packed_uch, unpacked_uch);
-	printf("\n>>> FILE REMOVED: %s\n", filename);
 	printf("\n==============================================================================");
-	printf("\n>> %s ==DECOMPRESS=> %s\n", filename, arg1);
+	printf("\n>> %s ==DECOMPRESS=> %s\n", arg1, filename);
 	printf("==============================================================================\n\n");
 	/* WRITE unpacked_str[] BACK TO ARG1 TEXT FILE */
 	FILE *fp;
-	myAssert((fp = fopen(arg1, "w")), "\n\n(!!!) ERROR WRITING DECOMPRESSED TEXT FILE (!!!)\n\n");
+	myAssert((fp = fopen(filename, "w")), "\n\n(!!!) ERROR WRITING DECOMPRESSED TEXT FILE (!!!)\n\n");
 	fprintf(fp, "%s", unpacked_str);
 	fclose(fp);
 }
@@ -226,7 +226,6 @@ void write_compr_str(char filename[], int PASSED_STR_TOTAL, int compr_bytes, uns
 	int pack_tot = PASSED_STR_TOTAL - PACKED_UCH_TOTAL;
 	float pack_ratio = COMPR_RATIO(PACKED_UCH_TOTAL, PASSED_STR_TOTAL);
 	if(zip_info == 1) printf("\nBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", pack_tot, pack_ratio, packed_uch);
-	printf("\n>>> SIZE: %d - FILE CREATED: %s\n", compr_bytes, filename);
 }
 void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL, unsigned char packed_uch[], unsigned char unpacked_uch[]) {
 	unsigned short read_size, cap_len;
@@ -253,18 +252,18 @@ void delete_original_file_option(char *arg1) {
 	printf("DELETE ORIGINAL TEXT FILE? (enter 1 - yes, 0 - no):\n\n>>> ");
 	scanf("%d", &delete_original_text_file);
 	if(delete_original_text_file != 1 && delete_original_text_file != 0) {
-		printf("\n -:- INVALID OPTION -:- FILE NOT DELTED -:- \n");
+		printf("\n -:- INVALID OPTION -:- FILE NOT DELETED -:- \n");
 	} else if(delete_original_text_file) {
-		printf("\n -:- FILE DELTED -:- \n");
+		printf("\n -:- FILE DELETED -:- \n");
 		remove(arg1);
 	}
 	printf("\n");
 }
 void err_info() {
 	printf("\n============================= INVALID EXECUTION! =============================\n");
-	printf("$ gcc -o fzip fzip.c\n$ ./fzip textfile.txt hide/show\n");
+	printf("$ gcc -o fzip fzip.c\n<COMPRESS>   $ ./fzip filename.txt\n<DECOMPRESS> $ ./fzip filename.txt.FZ1P\n");
 	printf("==============================================================================\n");
-	printf("=> COMPRESSION INFORMATION: $ ... hide/show info\n");
+	printf("=> COMPRESSION INFORMATION: $ ./fzip -l filename.extension\n");
 	printf("==============================================================================\n\n");
 	exit(0);
 }
@@ -380,10 +379,6 @@ void modify_str(char *s, int hide_flag) {
 		if(s[strlen(s)-1] == '@') s[strlen(s)-1] = '.'; /* in case file ends with an abbreviation */
 		delta_sub_capital_letters(s, 0);
 	}
-}
-void lowify_str(char s[]) {
-	char *p = s;
-	while(*p != '\0') { *p = tolower(*p); p++; }
 }
 /******************************************************************************
 * COMMON WORD SUBSTITUTION FUNCTIONS
