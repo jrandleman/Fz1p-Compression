@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
 	if(HAS_EXTENSION(arg1, ".txt")) {
 		ADD_FILENAME_EXTENSION(arg1, filename, ".FZ1P");
 		HIDE_HANDLER(arg1, filename);
-	} else if(HAS_EXTENSION(arg1, ".FZ1P")) {
+	} else if(HAS_EXTENSION(arg1, ".FZ1P") || HAS_EXTENSION(arg1, ".fz1p")) {
 		RMV_FILENAME_EXTENSION(arg1, filename);
 		SHOW_HANDLER(arg1, filename);
 	} else { err_info(); }
