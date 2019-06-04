@@ -57,7 +57,7 @@ void increment_idx_shift_arrs(int *, int [], int []);
 void modify_str(char *, int);
 /* COMMON WORD SUBSTITUTIONS */
 void splice_str(char *, char *, int);
-void delta_sub_common_words(char *, char [][50], char [][50]);
+void delta_sub_common_words(char *, char [][50], char [][50], int);
 /* FILE-LOCAL COMMON WORD SUBSTITUTIONS */
 void hide_handle_local_cws(char[]);
 void show_handle_local_cws(char[]);
@@ -371,11 +371,11 @@ void modify_str(char *s, int hide_flag) {
 			} else if(*p == '"') { *p = '\''; } /* double quotes => single quotes */
 			p++;
 		}
-		delta_sub_common_words(s, cw_word, cw_keys);
+		delta_sub_common_words(s, cw_word, cw_keys, 1);
 		hide_handle_local_cws(s); /* find and append local common words in front of text */
 	} else { /* SHOW */
 		show_handle_local_cws(s); /* read and rmv prepended local common words */
-		delta_sub_common_words(s, cw_keys, cw_word);
+		delta_sub_common_words(s, cw_keys, cw_word, 0);
 		if(IS_LOW_CH(*p)) *p ++ -= 32; /* capitalize first letter in file */
 		while(*p != '\0') {
 			if(*p == under_s) { /* '_' => ' ', capitalize ' I ' && ' C ' (if applicable) */
@@ -402,9 +402,12 @@ void modify_str(char *s, int hide_flag) {
 /******************************************************************************
 * COMMON WORD SUBSTITUTION FUNCTIONS
 ******************************************************************************/
-void delta_sub_common_words(char *s, char remove[][50], char insert[][50]) {
-	int word_len, i, j;
-	for(i = 0; i < CW_LEN; i++) {
+void delta_sub_common_words(char *s, char remove[][50], char insert[][50], int hide_flag) {
+	int word_len, i, j, condition;
+	(hide_flag == 1) ? (i = 0) : (i = CW_LEN - 1); /* traverse the cw matrix forwards on hide & backwards on show */
+	while(1) {
+		(hide_flag == 1) ? (condition = (i < CW_LEN)) : (condition = (i >= 0));
+		if(!condition) break;
 		char *p = s;
 		word_len = strlen(remove[i]);
 		while(*p != '\0') {
@@ -414,6 +417,7 @@ void delta_sub_common_words(char *s, char remove[][50], char insert[][50]) {
 			} else if(IS_PUNC(*p)) { p++; } /* avoid chaining word subs */
 			p++;
 		}
+		(hide_flag == 1) ? (i++) : (i--);
 	}
 }
 void splice_str(char *s, char *sub, int splice_len) {
