@@ -29,7 +29,8 @@
 #define IS_COMMA(X,Y,Z) ((X) == '-' && ((Y) == '_' || (Y) == '\'') && (Z) != ' ')
 #define IS_I_OR_C_(X,Y) (((X)=='c' || (X)=='i') && ((Y)=='_' || (Y)=='\n'))
 #define DUB_QUOTE(X,Y,Z) ((X) == '\'' && ((Y) == ' ' || (Z) == '_' || IS_PUNC((Z))))
-#define myAssert(C,M) ({if(C==NULL){printf("\n=> myAssert Failed: %s, %d, %s\n%s\n",__FUNCTION__,__LINE__,#C,M);exit(0);}})
+#define __PROGRAM__ ({char NAME[150];char*p=&__FILE__[strlen(__FILE__)-1];while(*(p-1)!='/')p--;strcpy(NAME,p);NAME;})
+#define myAssert(C,M) ({if(C==NULL){printf("\n=> myAssert Failed: %s: %s(): %d: %s\n%s\n",__PROGRAM__,__FUNCTION__,__LINE__,#C,M);exit(0);}})
 #define local_cw_mem_saved(STR,FREQ) ((strlen((STR)) * (FREQ)) - (strlen((STR)) + (2 * (FREQ))) - 1) /* -1 for '_' tailing pre-file local_cw word array */
 #define local_cw_worth_sub(S,F) ((strlen((S))==3) ? ((F)>4) : (strlen((S))==4||strlen((S))==5) ? ((F)>2) : ((strlen((S))>5) && ((F)>1)))
 #define lcw_end(CH1,CH2) ((CH1) == '_' || ((IS_PUNC((CH1)) || (CH1) == '-') && ((CH2) == '_' || ((CH2) == '\0'))))
