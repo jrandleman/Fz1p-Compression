@@ -14,6 +14,7 @@
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)],APPEND);})
 #define RMV_FILENAME_EXTENSION(OLD_FNAME,NEW_FNAME) ({strcpy(NEW_FNAME,OLD_FNAME);NEW_FNAME[strlen(OLD_FNAME)-5]='\0';})
 #define HAS_EXTENSION(S,EXT) (strcmp(&S[strlen(S)-strlen(EXT)], EXT) == 0)
+#define PRINT_UCH(LEN,UCH) ({int p_idx; for(p_idx = 0; p_idx < (LEN); p_idx++) printf("%c", UCH[p_idx]);})
 #define NEED_TO_UPDATE_ARRS(IDX) (IDX != 0 && IDX % 12 == 0)
 #define ITER_NUM(N,X,Y) ((((N + X) / 2) * 3) - Y)
 #define MULT_8(N) ((N) % 8 == 0)
@@ -30,7 +31,8 @@
 #define DUB_QUOTE(X,Y,Z) ((X) == '\'' && ((Y) == ' ' || (Z) == '_' || IS_PUNC((Z))))
 #define myAssert(C,M) ({if(C==NULL){printf("\n=> myAssert Failed: %s, %d, %s\n%s\n",__FUNCTION__,__LINE__,#C,M);exit(0);}})
 #define local_cw_mem_saved(STR,FREQ) ((strlen((STR)) * (FREQ)) - (strlen((STR)) + (2 * (FREQ))) - 1) /* -1 for '_' tailing pre-file local_cw word array */
-#define local_cw_worth_sub(S,F) ((strlen((S))==3) ? ((F)>4) : (strlen((S))==4||strlen((S))==5) ? ((F)>2) : ((strlen((S))>5) && ((F)>1))) /* saves > 0 bytes */
+#define local_cw_worth_sub(S,F) ((strlen((S))==3) ? ((F)>4) : (strlen((S))==4||strlen((S))==5) ? ((F)>2) : ((strlen((S))>5) && ((F)>1)))
+#define lcw_end(CH1,CH2) ((CH1) == '_' || ((IS_PUNC((CH1)) || (CH1) == '-') && ((CH2) == '_' || ((CH2) == '\0'))))
 /* MAIN HIDE / SHOW HANDLERS */
 void HIDE_HANDLER(char *, char *);
 void SHOW_HANDLER(char *, char *);
@@ -240,7 +242,7 @@ void write_compr_text(char filename[], int PASSED_STR_TOTAL, unsigned char packe
 	fclose(fp);
 	int pack_tot = PASSED_STR_TOTAL - PACKED_UCH_TOTAL;
 	float pack_ratio = COMPR_RATIO(PACKED_UCH_TOTAL, PASSED_STR_TOTAL);
-	if(zip_info == 1) printf("\nBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", pack_tot, pack_ratio, packed_uch);
+	if(zip_info==1){printf("\nBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n",pack_tot,pack_ratio);PRINT_UCH(PACKED_UCH_TOTAL,packed_uch);printf("\n");}
 }
 void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL, unsigned char packed_uch[], unsigned char unpacked_uch[]) {
 	unsigned short read_size, cap_len;
@@ -262,7 +264,7 @@ void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL,
 	fclose(fp);
 	remove(filename);
 	show_adjust_cw_keys(cw_read_length);
-	if(zip_info == 1) printf("\nBit-Packed:\n%s\n", packed_uch);
+	if(zip_info == 1){ printf("\nBit-Packed:\n"); PRINT_UCH(read_char_total, packed_uch); printf("\n"); }
 }
 void delete_original_file_option(char *arg1) {
 	int delete_original_text_file;
@@ -421,9 +423,7 @@ void delta_sub_common_words(char *s, char remove[][50], char insert[][50], int h
 	}
 }
 void splice_str(char *s, char *sub, int splice_len) {
-	char temp[MAX_CH];
-	sprintf(temp, "%s%s", sub, s + splice_len);
-	strcpy(s, temp);
+	char temp[MAX_CH]; sprintf(temp, "%s%s", sub, s + splice_len); strcpy(s, temp);
 }
 /******************************************************************************
 * FILE-LOCAL COMMON WORD SUBSTITUTIONS
@@ -434,12 +434,11 @@ void hide_handle_local_cws(char s[]) {
 	for(i = 0; i < (MAX_CH/2); i++) all_local_cws[i].freq = 0; /* init frequencies */
 	while(*p != '\0') {
 		if(*p == '_' || files_first_word == 0) { /* if could be valid local common word */
-			q = p + 1, count = 0;
-			while(*q != '_' && *q != '\0') { q++; count++; } /* get local word's length */
+			q = p + files_first_word, count = 0;
+			while(!lcw_end(*q, *(q+1)) && *q != '\0') { q++; count++; } /* get local word's length */
 			fill_local_word(local_word, p + 1, count); /* p + 1 to not include prefix '_' */
 			update_local_word_in_struct(local_word, &all_lcwIdx); /* increment freq or add word to struct */
-			files_first_word = 1;
-			p = q; /* move p to the next word */
+			files_first_word = 1, p = q; /* move p to the next word */
 		} else { p++; }
 	}
 	for(j = 0; j < all_lcwIdx; j++) if(local_cw_worth_sub(all_local_cws[j].cw, all_local_cws[j].freq)) keep_local_word(j); /* eliminate ineffective lcw's */
@@ -452,12 +451,12 @@ void hide_handle_local_cws(char s[]) {
 void show_handle_local_cws(char s[]) {
 	int under_s_count = 0, word_len;
 	char *p = s, *q, local_word[MAX_CH], file_text_buffer[MAX_CH];
-	while(under_s_count < lcwIdx && *p != '\0') { /* scrape lcw's from front of file */
+	while(under_s_count < lcwIdx && *p != '\0') { /* scrape lcw's from front (prepend) of file */
 		word_len = 0, q = p + 1; while(*q != '_' && *q != '\0') { q++; word_len++; }
 		strcpy(local_word, p); local_word[word_len + 1] = '\0';
 		strcpy(local_cws[under_s_count].cw, local_word); /* add local common word to struct */
 		strcpy(local_cws[under_s_count].sub, local_cw_keys[under_s_count]); /* add substitution key */
-		under_s_count++; p = q + 1;
+		under_s_count++, p = q + 1;
 	}
 	strcpy(file_text_buffer, p); strcpy(s, file_text_buffer); /* splice out prepended lcws */
 	delta_sub_local_common_words(s, 0); /* replace lcw keys with lcws */
@@ -470,7 +469,7 @@ void delta_sub_local_common_words(char s[], int hide_flag) {
 		else { strcpy(rmv, local_cws[i].sub); strcpy(add, local_cws[i].cw); }
 		word_len = strlen(rmv);
 		while(*(p + word_len + 1) != '\0') {
-			if(*p == '_' && *(p + word_len + 1) == '_' && *(p + 1) == rmv[0]) {
+			if(*p == '_' && lcw_end(*(p+word_len+1),*(p+word_len+2)) && *(p + 1) == rmv[0]) {
 				p++; for(j = 0; j < word_len; j++) if(*(p + j) != rmv[j]) break;
 				if(j == word_len) splice_str(p, add, word_len); /* if word in s is local common word */
 			}
@@ -497,9 +496,8 @@ void keep_local_word(int j) {
 void handle_capped_lcwIdx() {
 	int i, j, rmv_amount = lcwIdx - FULL_CW_LEN + 1;
 	for(i = 0; i < rmv_amount; i++) { /* find rmv_amount # of least-memory-saving lcws & rmv them */
-		int min_mem_idx = 0;
-		for(j = 0; j < lcwIdx; j++) if(local_cws[j].mem_saved < local_cws[min_mem_idx].mem_saved) min_mem_idx = j; /* find least-memory-saving lcw */
-		lcwIdx--; for(j = min_mem_idx; j < lcwIdx; j++) local_cws[j] = local_cws[j + 1]; /* rmv least-memory-saving lcw from local_cws struct */
+		int min = 0; for(j = 0; j < lcwIdx; j++) if(local_cws[j].mem_saved < local_cws[min].mem_saved) min = j; /* find least-memory-saving lcw */
+		lcwIdx--; for(j = min; j < lcwIdx; j++) local_cws[j] = local_cws[j + 1]; /* rmv least-memory-saving lcw from local_cws struct */
 	}
 	for(j = 0; j < FULL_CW_LEN; j++) strcpy(local_cws[j].sub, local_cw_keys[j]); /* re-assign local_cw_keys to lcws relative to their new position */
 }
@@ -535,10 +533,7 @@ void hide_adjust_cw_keys(char s[]) {
 		while(*p != '\0') {
 			if(*p == modded_key[0]) {
 				for(j = 0; j < word_len; j++) if(*(p + j) != modded_key[j]) break;
-				if(j == word_len) {
-					shift_up_cw_keys(i);
-					cw_shift_up_idxs[FULL_CW_LEN - (CW_LEN--)] = (unsigned char)i;
-				}
+				if(j == word_len) { shift_up_cw_keys(i); cw_shift_up_idxs[FULL_CW_LEN - (CW_LEN--)] = (unsigned char)i; }
 			}
 			p++;
 		}
