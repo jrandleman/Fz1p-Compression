@@ -1,7 +1,7 @@
 # Fzip && Ziptxt
 _Lossless Compression &amp; Encryption For Text Files!_
 ---------------------------------------
-**_fzip compression => txt <--> bin, more compression: via bit-packing (same cmd syntax w/o password)_**</br>
+**_fzip compression => txt <--> bin, more compression: via bit-packing_**</br>
 **_ziptxt compression => txt <--> txt, with encryption: locally in textfile_**
 
 $ gcc -o fzip fzip.c</br>
@@ -9,8 +9,7 @@ $ gcc -o fzip fzip.c</br>
 \<DECOMPRESS> $ ./fzip filename.txt.FZ1P
 
 $ gcc -o ziptxt ziptxt.c</br>
-\<ENCRYPT-COMPRESSOR> $ ./ziptxt filename.txt yourpassword</br>
-\<DECRYPT-DECOMPRESS> $ ./ziptxt filename.TZ1P.txt yourpassword
+\<(D)ENCRYPT-(DE)COMPRESSOR> $ ./ziptxt filename.txt yourpassword
 
 * _unique password per text file!_
 * Enter \<-l> to print compression/encryption information during run:
