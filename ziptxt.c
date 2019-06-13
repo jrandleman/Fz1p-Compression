@@ -9,9 +9,8 @@
 #include <stdio.h>
 #include <ctype.h>
 #define MAX_CH 1000000
+#define FEXIST(S) ({FILE*f;char str[]="rb";if(strcmp(&S[strlen(S-4)],".txt")==0){str[1]='\0';}((f=fopen(S,str))==NULL)?(0):({fclose(f);1;});})
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)],APPEND);})
-#define RMV_FILENAME_EXTENSION(FNAME,LEN) (FNAME[strlen(FNAME)-LEN]='\0')
-#define HAS_EXTENSION(S,EXT) (strcmp(&S[strlen(S)-strlen(EXT)], EXT) == 0)
 #define IS_CAP_CH(ch_c_inst) ((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z')
 #define IS_LOW_CH(CH) ((CH) >= 'a' && (CH) <= 'z')
 #define IS_ALF_CH(CH) (IS_CAP_CH((CH)) || IS_LOW_CH((CH)))
@@ -139,13 +138,14 @@ char ss_refs[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ01789#$<=>@[]^{|}~\0", nchar = '\n';
 int cw_idxs[FULL_CW_LEN], chunk_count = 0, original_bytes = 0, compressed_bytes = 0, zip_info = 0;
 int main(int argc, char *argv[]) {
 	if(argc < 3 || argc > 4) err_info();
-	char arg1[75], arg2[75];
+	char arg1[75], arg2[75], compr_arg2[75];
 	if(argc == 4) {
 		strcpy(arg1, argv[2]); strcpy(arg2, argv[3]);
 		(strcmp(argv[1], "-l") == 0) ? (zip_info = 1) : (printf("\n\n(!!!) WRONG INFO FLAG => -l (!!!)\n\n"));
 	} else { strcpy(arg1, argv[1]); strcpy(arg2, argv[2]); }
-	if(HAS_EXTENSION(arg1, ".TZ1P.txt") || HAS_EXTENSION(arg1, ".tz1p.txt")) { show(arg2, arg1); }
-	else if(HAS_EXTENSION(arg1, ".txt")) { hide(arg2, arg1); }
+	ADD_FILENAME_EXTENSION(arg2,compr_arg2,"_sskey.TZ1P");
+	if(FEXIST(arg1) && !FEXIST(compr_arg2)) { hide(arg2, arg1); }
+	else if(FEXIST(arg1) && FEXIST(compr_arg2)) { show(arg2, arg1); }
 	else { err_info(); }
 	return 0;
 }
@@ -153,10 +153,6 @@ int main(int argc, char *argv[]) {
 * HIDE / SHOW FUNCTIONS
 ******************************************************************************/
 void hide(char *arg2, char *arg1) {
-	char arg1seed[75], filename[75];
-	strcpy(arg1seed, arg1);
-	RMV_FILENAME_EXTENSION(arg1seed,strlen(".txt"));
-	ADD_FILENAME_EXTENSION(arg1seed,filename,".TZ1P.txt");
 	read_txt_engl(arg2, arg1); /* process text file in 150 char chunks */
 	int ss_keys_byte = pack_ss_keys(arg2);
 	write_txt_compressed(arg1); /* write compressed string to text file */
@@ -164,30 +160,26 @@ void hide(char *arg2, char *arg1) {
 	compressed_bytes += ss_keys_byte;
 	float bytes_saved = 100*(1.000000 - ((float)compressed_bytes)/((float)original_bytes));
 	printf("\n==============================================================================");
-	printf("\n%s ==COMPRESS=ENCRYPT=> %s\n", arg1, filename);
+	printf("\n=> %s => COMPRESSED & ENCRYPTED!\n", arg1);
 	printf(">> BYTES => UNCOMPRESSED: %d, COMPRESSED: %d, COMPRESSION RATE: %.2f%%\n", original_bytes, compressed_bytes, bytes_saved);
 	printf("==============================================================================\n\n");
 }
 void show(char *arg2, char *arg1) {
-	char filename[75], arg1compr[75], arg1dcmpr[75];
-	strcpy(arg1compr, arg1);
+	char filename[75];
 	ADD_FILENAME_EXTENSION(arg2,filename,"_sskey.TZ1P");
 	unpack_ss_keys(arg2);
 	read_pass_ss_keys(arg2);
 	show_txt_compressed(arg2, arg1);
 	printf("\n>>> FILE REMOVED: %s\n", filename);
-	ADD_FILENAME_EXTENSION(arg1,arg1compr,".TZ1P.txt");
-	ADD_FILENAME_EXTENSION(arg1,arg1dcmpr,".txt");
 	printf("\n==============================================================================");
-	printf("\n>> %s ==DECOMPRESS=DECRYPT=> %s\n", arg1compr, arg1dcmpr);
+	printf("\n=> %s => DECOMPRESSED & DECRYPTED!\n", arg1);
 	printf("==============================================================================\n\n");
 }
 void err_info() {
 	printf("\n============================= INVALID EXECUTION! =============================\n");
-	printf("$ gcc -o ziptxt ziptxt.c\n<ENCRYPT/COMPRESS>   $ ./ziptxt filename.txt yourpassword\n");
-	printf("<DECRYPT/DECOMPRESS> $ ./ziptxt filename.TZ1P.txt yourpassword\n");
+	printf("$ gcc -o ziptxt ziptxt.c\n<(D)ENCRYPT/(DE)COMPRESS> $ ./ziptxt filename.txt yourpassword\n");
 	printf("==============================================================================");
-	printf("\n=> ENCRYPT/COMPRESS INFO: $ ./ziptxt -l filename.extension yourpassword\n");
+	printf("\n=> ENCRYPT/COMPRESS INFO: $ ./ziptxt -l filename.txt yourpassword\n");
 	printf("==============================================================================\n\n");
 	exit(0);
 }
@@ -196,7 +188,7 @@ void err_info() {
 ******************************************************************************/
 void show_txt_compressed(char *arg2, char *arg1) {
 	FILE *fp;
-	char s_buffer[150], filename[75];
+	char s_buffer[150];
 	int s_chunk_number = 0, i;
 	myAssert((fp = fopen(arg1, "r")), "\n\n(!!!) ERROR READING COMPRESSED TEXT FILE (!!!)\n");
 	while(fgets(s_buffer, 150, fp) != NULL) { /* GET COMPRESSED TEXT */
@@ -215,11 +207,9 @@ void show_txt_compressed(char *arg2, char *arg1) {
 		sprintf(p, "%s", s_compress_storage[i]);
 	}
 	fclose(fp);
-	remove(arg1);
 	/* PUT DECOMPRESSED TEXT */
 	modify_str(s_max_buffer, 0); /* '_' => ' ' */
-	RMV_FILENAME_EXTENSION(arg1,strlen(".TZ1P.txt")); ADD_FILENAME_EXTENSION(arg1,filename,".txt");
-	myAssert((fp = fopen(filename, "w")), "\n\n(!!!) ERROR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
+	myAssert((fp = fopen(arg1, "w")), "\n\n(!!!) ERROR WRITING DECOMPRESSED TEXT FILE (!!!)\n");
 	fwrite(s_max_buffer, sizeof(char), strlen(s_max_buffer), fp);
 	fclose(fp);
 }
@@ -241,17 +231,13 @@ void read_txt_engl(char *arg2, char *arg1) {
 	fclose(fp);
 }
 void write_txt_compressed(char *arg1) {
-	FILE *fp; int i; char arg1seed[75], filename[75];
-	strcpy(arg1seed, arg1);
-	RMV_FILENAME_EXTENSION(arg1seed,strlen(".txt"));
-	ADD_FILENAME_EXTENSION(arg1seed,filename,".TZ1P.txt");
-	myAssert((fp = fopen(filename, "w")), "\n\n(!!!) ERROR WRITING COMPRESSED TEXT TO FILE (!!!)\n");
+	FILE *fp; int i;
+	myAssert((fp = fopen(arg1, "w")), "\n\n(!!!) ERROR WRITING COMPRESSED TEXT TO FILE (!!!)\n");
 	for(i = 0; i < chunk_count; i++) {
 		fwrite(s_compress_storage[i], sizeof(char), strlen(s_compress_storage[i]), fp);
 		fwrite(&nchar, sizeof(char), 1, fp);
 	}
 	fclose(fp);
-	remove(arg1);
 }
 /******************************************************************************
 * BINARY FILE HANDLER FUNCTIONS
