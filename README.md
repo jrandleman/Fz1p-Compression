@@ -12,7 +12,7 @@ _Lossless Compression &amp; Encryption For Text Files!_
 \<(D)ENCRYPT-(DE)COMPRESSOR> `$ ./ziptxt filename.txt yourpassword`
 
 * _unique password per text file!_
-* Enter \<-l> to print compression/encryption information during run:
+* Enter `-l` to print compression/encryption information during run:
   * `$ ./fzip -l ...`
   * `$ ./ziptxt -l ...`
   
