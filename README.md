@@ -11,7 +11,7 @@
 | ziptxt.c |       20%       |     YES!    |
 
 ---------------------------------------
-### Compilation and Initialization
+### Compilation and Initialization:
 \<COMPILE> `$ gcc -o fz1p fz1p.c`</br>
 \<COMPRESSOR> `$ ./fz1p filename.txt`</br>
 \<DECOMPRESS> `$ ./fz1p filename.txt.FZ1P`
