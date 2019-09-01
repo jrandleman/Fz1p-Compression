@@ -12,13 +12,14 @@
  *
  * RESERVED CHARACTER SEQUENCES (for compression process):
  * (1) "qx"
- * (2) "qy" 
+ * (2) "qy"
  * (3) "qz"
  */
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 #define MAX_CH 1000000
 #define COMPR_MEM(UCH_TOT) (4 + (FULL_CW_LEN - CW_LEN) + (UCH_TOT)) /* lcw l + key l & arr + uncompr l + compr arr */
 #define COMPR_RATIO(NEW,OLD) (100*(1.000000 - (((float)NEW)/((float)OLD))))
@@ -35,19 +36,23 @@
 #define IS_LOW_CH(CH) ((CH) >= 'a' && (CH) <= 'z')
 #define IS_PUNC(CH) ((CH) == '.' || (CH) == '!' || (CH) == '?')
 #define __PROGRAM__ ({char NAME[150];char*p=&__FILE__[strlen(__FILE__)-1];while(*(p-1)!='/')p--;strcpy(NAME,p);NAME;})
-#define myAssert(C,M) ({if(C==NULL){fprintf(stderr, "\n=> myAssert Failed: %s, program: %s, function: %s(), line: %d\n%s\n",#C,__PROGRAM__,__FUNCTION__,__LINE__,M);exit(0);}})
+#define myAssert(C,M)\
+  ({if(C==NULL){fprintf(stderr, "\n=> myAssert Failed: %s, program: %s, function: %s(), line: %d\n%s\n",#C,__PROGRAM__,__FUNCTION__,__LINE__,M);exit(0);}})
 #define local_cw_mem_saved(STR,FREQ) ((strlen((STR)) * (FREQ)) - (strlen((STR)) + (2 * (FREQ))) - 1) /* -1 for '_' tailing pre-file local_cw word array */
 #define local_cw_worth_sub(S,F) ((strlen((S))==3) ? ((F)>4) : (strlen((S))==4||strlen((S))==5) ? ((F)>2) : ((strlen((S))>5) && ((F)>1)))
 #define lcw_end(CH1,CH2) ((CH1) == '_' || ((IS_PUNC((CH1)) || (CH1) == '-') && ((CH2) == '_' || ((CH2) == '\0'))))
 /* MAIN HIDE / SHOW HANDLERS */
 void HIDE_HANDLER(char *, char *);
 void SHOW_HANDLER(char *, char *);
+/* ERROR MESSAGES */
+void check_for_reserved_qx_qy_qz_char_sequences(char *);
+void confirm_valid_file(char *);
+void err_info();
 /* HANDLE TEXT FILE */
 void read_uncompr_text(char [], char *, int *);
 void write_compr_text(char [], int, unsigned char []);
 void read_compr_text(char *, char [], int *, unsigned char [], unsigned char []);
 void delete_original_file_option(char *);
-void err_info();
 /* HASH/DEHASH FUNCTIONS */
 void hash_pack_handler(int, char [], unsigned char []);
 void unpack_dehash_handler(int, char [], unsigned char [], unsigned char []);
@@ -64,8 +69,6 @@ void increment_idx_shift_arrs(int *, int [], int []);
 /* STRING EDITING FUNCITONS */
 void modify_str(char *, bool);
 bool is_at_substring(char *, char *);
-/* RESERVED CHARACTER SEQUENCE SCANNING FUNCTION */
-void check_for_reserved_qx_qy_qz_char_sequences(char *);
 /* NON-BITPACKABLE CHARACTER SUBSTITUTION FUNCTIONS */
 void sub_out_replaceable_chars(char *);
 void sub_back_in_replaceable_chars(char *);
@@ -171,6 +174,7 @@ int main(int argc, char *argv[]) {
     strcpy(arg1, argv[2]);
     (strcmp(argv[1], "-l") == 0) ? (zip_info = true) : (fprintf(stderr, "\n\n(!!!) WRONG INFO FLAG => -l (!!!)\n\n"));
   } else { strcpy(arg1, argv[1]); }
+  confirm_valid_file(arg1); /* confirm file exists, is not empty, & is less memory than MAX_CH */
   if(HAS_EXTENSION(arg1, ".txt")) {
     ADD_FILENAME_EXTENSION(arg1, filename, ".FZ1P");
     HIDE_HANDLER(arg1, filename);
@@ -224,6 +228,56 @@ void SHOW_HANDLER(char *arg1, char *filename) {
   myAssert((fp = fopen(filename, "w")), "\n\n(!!!) ERROR WRITING DECOMPRESSED TEXT FILE (!!!)\n\n");
   fprintf(fp, "%s", unpacked_str);
   fclose(fp);
+}
+/******************************************************************************
+* ERROR MESSAGES
+******************************************************************************/
+void check_for_reserved_qx_qy_qz_char_sequences(char *str) {
+  char *p = str;
+  while(*(p+1) != '\0') {
+    if(*p == 'q' && (*(p+1) == 'x' || *(p+1) == 'y' || *(p+1) == 'z')) {
+      char temp[MAX_CH];
+      FLOOD_ZEROS(temp, MAX_CH);
+      strcpy(temp, p);
+      int p_len = strlen(p);
+      int length = p_len < 37 ? p_len : 37;
+      temp[length] = '\0';
+      fprintf(stderr, "\n===========================================================\n");
+      fprintf(stderr, "fz1p.c: WARNING, RESERVED CHARACTER SEQUENCE \"q%c\" DETECTED!\n", *(p+1));
+      fprintf(stderr, "==== >> FOUND HERE: \"%s\"\n", temp);
+      fprintf(stderr, "==== >> REMOVE TO COMPRESS FILE WITH fz1p.c!\n");
+      fprintf(stderr, "==== >> TERMINATING PROGRAM.\n");
+      fprintf(stderr, "===========================================================\n\n");
+      exit(EXIT_FAILURE);
+    }
+    ++p;
+  }
+}
+void confirm_valid_file(char *filename) { /* confirms file exists, non-empty, & is less memory than MAX_CH */
+  struct stat buf;
+  if(stat(filename, &buf)) {
+    fprintf(stderr, "\n-:- fz1p.c: WARNING, FILE \"%s\" DOES NOT EXIST! -:-\n", filename);
+    fprintf(stderr, ">> Terminating Program.\n\n");
+    exit(EXIT_FAILURE);
+  }
+  if(buf.st_size > MAX_CH || buf.st_size == 0) {
+    if(buf.st_size > MAX_CH) {
+      fprintf(stderr, "\n-:- fz1p.c: WARNING, FILE \"%s\" SIZE %lld BYTES EXCEEDS %d BYTE CAP! -:- \n",filename,buf.st_size,MAX_CH); 
+      fprintf(stderr, "-:- RAISE 'MAX_CH' MACRO LIMIT! -:- \n");
+    } else fprintf(stderr, "\n-:- EMPTY FILES CAN'T BE COMPRESSED! -:- \n"); 
+    fprintf(stderr, ">> Terminating Program.\n\n");
+    exit(EXIT_FAILURE);
+  }
+}
+void err_info() {
+  fprintf(stderr, "\n============================= INVALID EXECUTION! =============================\n");
+  fprintf(stderr, "$ gcc -o fz1p fz1p.c\n<COMPRESS>   $ ./fz1p filename.txt\n<DECOMPRESS> $ ./fz1p filename.txt.FZ1P\n");
+  fprintf(stderr, "==============================================================================\n");
+  fprintf(stderr, "=> COMPRESSION INFORMATION: $ ./fz1p -l filename.extension\n");
+  fprintf(stderr, "==============================================================================\n");
+  fprintf(stderr, "=> RESERVED CHAR SEQUENCES: \"qx\", \"qy\", & \"qz\"\n");
+  fprintf(stderr, "==============================================================================\n\n");
+  exit(0);
 }
 /******************************************************************************
 * HANDLE TEXT/BINARY FILES
@@ -292,16 +346,6 @@ void delete_original_file_option(char *arg1) {
     remove(arg1);
   }
   printf("\n");
-}
-void err_info() {
-  fprintf(stderr, "\n============================= INVALID EXECUTION! =============================\n");
-  fprintf(stderr, "$ gcc -o fz1p fz1p.c\n<COMPRESS>   $ ./fz1p filename.txt\n<DECOMPRESS> $ ./fz1p filename.txt.FZ1P\n");
-  fprintf(stderr, "==============================================================================\n");
-  fprintf(stderr, "=> COMPRESSION INFORMATION: $ ./fz1p -l filename.extension\n");
-  fprintf(stderr, "==============================================================================\n");
-  fprintf(stderr, "=> RESERVED CHAR SEQUENCES: \"qx\", \"qy\", & \"qz\"\n");
-  fprintf(stderr, "==============================================================================\n\n");
-  exit(0);
 }
 /******************************************************************************
 * HASH/DEHASH FUNCTIONS
@@ -394,30 +438,6 @@ bool is_at_substring(char *p, char *substr) {
   int i = 0, len = strlen(substr);
   for(; i < len; ++i) if(p[i] != substr[i]) return false;
   return true;
-}
-/******************************************************************************
-* RESERVED CHARACTER SEQUENCE SCANNING FUNCTION
-******************************************************************************/
-void check_for_reserved_qx_qy_qz_char_sequences(char *str) {
-  char *p = str;
-  while(*(p+1) != '\0') {
-    if(*p == 'q' && (*(p+1) == 'x' || *(p+1) == 'y' || *(p+1) == 'z')) {
-      char temp[MAX_CH];
-      FLOOD_ZEROS(temp, MAX_CH);
-      strcpy(temp, p);
-      int p_len = strlen(p);
-      int length = p_len < 37 ? p_len : 37;
-      temp[length] = '\0';
-      fprintf(stderr, "\n===========================================================\n");
-      fprintf(stderr, "fz1p.c: WARNING, RESERVED CHARACTER SEQUENCE \"q%c\" DETECTED!\n", *(p+1));
-      fprintf(stderr, "==== >> FOUND HERE: \"%s\"\n", temp);
-      fprintf(stderr, "==== >> REMOVE TO COMPRESS FILE WITH fz1p.c!\n");
-      fprintf(stderr, "==== >> TERMINATING PROGRAM.\n");
-      fprintf(stderr, "===========================================================\n\n");
-      exit(EXIT_FAILURE);
-    }
-    ++p;
-  }
 }
 /******************************************************************************
 * NON-BITPACKABLE CHARACTER SUBSTITUTION FUNCTIONS
