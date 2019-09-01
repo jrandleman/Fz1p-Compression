@@ -19,8 +19,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 #define MAX_CH 1000000
-#define FEXIST(S) ({FILE*f;char str[]="rb";if(strcmp(&S[strlen(S-4)],".txt")==0){str[1]='\0';}((f=fopen(S,str))==NULL)?(0):({fclose(f);1;});})
+#define FEXIST(S) ({FILE*f;char str[]="rb";if(strcmp(&S[strlen(S-4)],".txt")==0){str[1]='\0';}((f=fopen(S,str))==NULL)?(false):({fclose(f);true;});})
+#define ISNT_A_TXT_FILE(S) (strlen(S) < 5 || strcmp((S + strlen(S) - 4), ".txt") != 0)
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)],APPEND);})
 #define FLOOD_ZEROS(arr, len) ({int arr_i = 0;for(; arr_i < len; ++arr_i) arr[arr_i] = 0;})
 #define IS_CAP_CH(ch_c_inst) ((ch_c_inst) >= 'A' && (ch_c_inst) <= 'Z')
@@ -28,10 +30,14 @@
 #define SS_KEY_UCH_TOT(str_total) ((str_total) - ((str_total) / 8))
 #define SS_KEY_STR_TOT(uch_total) ((uch_total) + ((uch_total) / 7))
 #define __PROGRAM__ ({char NAME[150];char*p=&__FILE__[strlen(__FILE__)-1];while(*(p-1)!='/')p--;strcpy(NAME,p);NAME;})
-#define myAssert(C,M) ({if(C==NULL){fprintf(stderr, "\n=> myAssert Failed: %s, program: %s, function: %s(), line: %d\n%s\n",#C,__PROGRAM__,__FUNCTION__,__LINE__,M);exit(0);}})
+#define myAssert(C,M)\
+  ({if(C==NULL){fprintf(stderr, "\n=> myAssert Failed: %s, program: %s, function: %s(), line: %d\n%s\n",#C,__PROGRAM__,__FUNCTION__,__LINE__,M);exit(0);}})
 /* HIDE / SHOW FUNCTIONS */
 void hide(char *, char *);
 void show(char *, char *);
+/* ERROR MESSAGES */
+void check_for_reserved_qx_qy_qz_char_sequences(char *);
+void confirm_valid_file(char *);
 void err_info();
 /* TEXT FILE HANDLER FUNCTIONS */
 void show_txt_compressed(char *, char *);
@@ -53,8 +59,6 @@ void delta_txt_crypt(char *, char *);
 void rm_nxt_ch(char *, int);
 void modify_str(char *, int);
 bool is_at_substring(char *, char *);
-/* RESERVED CHARACTER SEQUENCE SCANNING FUNCTION */
-void check_for_reserved_qx_qy_qz_char_sequences(char *);
 /* NON-BITPACKABLE CHARACTER SUBSTITUTION FUNCTIONS */
 void sub_out_replaceable_chars(char *);
 void sub_back_in_replaceable_chars(char *);
@@ -150,9 +154,9 @@ int main(int argc, char *argv[]) {
     (strcmp(argv[1], "-l") == 0) ? (zip_info = true) : (fprintf(stderr, "\n\n(!!!) WRONG INFO FLAG => -l (!!!)\n\n"));
   } else { strcpy(arg1, argv[1]); strcpy(arg2, argv[2]); }
   ADD_FILENAME_EXTENSION(arg2,compr_arg2,"_sskey.TZ1P");
-  if(FEXIST(arg1) && !FEXIST(compr_arg2)) { hide(arg2, arg1); }
-  else if(FEXIST(arg1) && FEXIST(compr_arg2)) { show(arg2, arg1); }
-  else { err_info(); }
+  confirm_valid_file(arg1); /* confirm text file exists, is not empty, & is less memory than MAX_CH */
+  if(!FEXIST(compr_arg2)) hide(arg2, arg1); 
+  else                    show(arg2, arg1); 
   return 0;
 }
 /******************************************************************************
@@ -181,6 +185,51 @@ void show(char *arg2, char *arg1) {
   printf("\n==============================================================================");
   printf("\n=> %s => DECOMPRESSED & DECRYPTED!\n", arg1);
   printf("==============================================================================\n\n");
+}
+/******************************************************************************
+* ERROR MESSAGES
+******************************************************************************/
+void check_for_reserved_qx_qy_qz_char_sequences(char *str) {
+  char *p = str;
+  while(*(p+1) != '\0') {
+    if(*p == 'q' && (*(p+1) == 'x' || *(p+1) == 'y' || *(p+1) == 'z')) {
+      char temp[MAX_CH];
+      FLOOD_ZEROS(temp, MAX_CH);
+      strcpy(temp, p);
+      int p_len = strlen(p);
+      int length = p_len < 37 ? p_len : 37;
+      temp[length] = '\0';
+      fprintf(stderr, "\n=============================================================\n");
+      fprintf(stderr, "ziptxt.c: WARNING, RESERVED CHARACTER SEQUENCE \"q%c\" DETECTED!\n", *(p+1));
+      fprintf(stderr, "====== >> FOUND HERE: \"%s\"\n", temp);
+      fprintf(stderr, "====== >> REMOVE TO COMPRESS FILE WITH ziptxt.c!\n");
+      fprintf(stderr, "====== >> TERMINATING PROGRAM.\n");
+      fprintf(stderr, "=============================================================\n\n");
+      exit(EXIT_FAILURE);
+    }
+    ++p;
+  }
+}
+void confirm_valid_file(char *filename) { /* confirms text file exists, non-empty, & is less memory than MAX_CH */
+  struct stat buf;
+  if(stat(filename, &buf)) {
+    fprintf(stderr, "\n-:- ziptxt.c: WARNING, FILE \"%s\" DOES NOT EXIST! -:-\n", filename);
+    fprintf(stderr, ">> Terminating Program.\n\n");
+    exit(EXIT_FAILURE);
+  }
+  if(buf.st_size > MAX_CH || buf.st_size == 0) {
+    if(buf.st_size > MAX_CH) {
+      fprintf(stderr, "\n-:- ziptxt.c: WARNING, FILE \"%s\" SIZE %lld BYTES EXCEEDS %d BYTE CAP! -:- \n",filename,buf.st_size,MAX_CH); 
+      fprintf(stderr, "-:- RAISE 'MAX_CH' MACRO LIMIT! -:- \n");
+    } else fprintf(stderr, "\n-:- EMPTY FILES CAN'T BE COMPRESSED! -:- \n"); 
+    fprintf(stderr, ">> Terminating Program.\n\n");
+    exit(EXIT_FAILURE);
+  }
+  if(ISNT_A_TXT_FILE(filename)) { /* confirm file being compressed is a .txt */
+    fprintf(stderr, "\n-:- ziptxt.c: WARNING, TEXT FILE \"%s\" IS MISSING \".txt\" EXTENSION! -:-\n", filename);
+    fprintf(stderr, ">> Terminating Program.\n\n");
+    exit(EXIT_FAILURE);
+  }
 }
 void err_info() {
   fprintf(stderr, "\n============================= INVALID EXECUTION! =============================\n");
@@ -391,30 +440,6 @@ bool is_at_substring(char *p, char *substr) {
   int i = 0, len = strlen(substr);
   for(; i < len; ++i) if(p[i] != substr[i]) return false;
   return true;
-}
-/******************************************************************************
-* RESERVED CHARACTER SEQUENCE SCANNING FUNCTION
-******************************************************************************/
-void check_for_reserved_qx_qy_qz_char_sequences(char *str) {
-  char *p = str;
-  while(*(p+1) != '\0') {
-    if(*p == 'q' && (*(p+1) == 'x' || *(p+1) == 'y' || *(p+1) == 'z')) {
-      char temp[MAX_CH];
-      FLOOD_ZEROS(temp, MAX_CH);
-      strcpy(temp, p);
-      int p_len = strlen(p);
-      int length = p_len < 37 ? p_len : 37;
-      temp[length] = '\0';
-      fprintf(stderr, "\n=============================================================\n");
-      fprintf(stderr, "ziptxt.c: WARNING, RESERVED CHARACTER SEQUENCE \"q%c\" DETECTED!\n", *(p+1));
-      fprintf(stderr, "====== >> FOUND HERE: \"%s\"\n", temp);
-      fprintf(stderr, "====== >> REMOVE TO COMPRESS FILE WITH ziptxt.c!\n");
-      fprintf(stderr, "====== >> TERMINATING PROGRAM.\n");
-      fprintf(stderr, "=============================================================\n\n");
-      exit(EXIT_FAILURE);
-    }
-    ++p;
-  }
 }
 /******************************************************************************
 * NON-BITPACKABLE CHARACTER SUBSTITUTION FUNCTIONS
