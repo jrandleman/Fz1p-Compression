@@ -1,42 +1,33 @@
-# Fz1p && Ziptxt
-## _Lossless Compression &amp; Encryption For Text Files!_
+# Fz1p.c
+## _Lossless Text Compression Via Substring Substitution & Bitpacking!_
 ---------------------------------------
-### `fz1p.c` and `ziptxt.c` Trade-offs:
-**_fz1p compression => txt <--> bin, more compression: via bit-packing_**</br>
-**_ziptxt compression => txt <--> txt, with encryption: locally in textfile_**</br>
-
-|   FILE   | AVG COMPRESSION | ENCRYPTION? |
-|:---------|:---------------:|:-----------:|
-| fz1p.c   |       50%       |      NO!    |
-| ziptxt.c |       20%       |     YES!    |
-
----------------------------------------
-### Compilation and Initialization:
+## Compilation and Initialization:
 \<COMPILE> `$ gcc -o fz1p fz1p.c`</br>
 \<COMPRESSOR> `$ ./fz1p filename.txt`</br>
 \<DECOMPRESS> `$ ./fz1p filename.txt.FZ1P`
 
-\<COMPILE> `$ gcc -o ziptxt ziptxt.c`</br>
-\<(D)ENCRYPT-(DE)COMPRESSOR> `$ ./ziptxt filename.txt yourpassword`
-
-* _unique password per text file!_
-* Enter `-l` to print compression/encryption information during run:
+* Enter `-l` to print compression information during run:
   * `$ ./fz1p -l ...`
-  * `$ ./ziptxt -l ...`
   
 ---------------------------------------
-### Both `fz1p.c` and `ziptxt.c` Reserve 3 Char Sequences for Compression:
-* "`qx`", "`qy`", _&_ "`qz`" _are **NOT** to be used in any_ `.txt` _being compressed_
-* _Both_ `fz1p.c` _&_ `ziptxt.c` _preemptively scan files to warn users if any of the above are found_
+## Compression Information:
+| AVG COMPRESSION | ORIGINAL FILE | COMPRESSED FILE |
+|:---------------:|:-------------:|:---------------:|
+|       50%       |      TXT      |       BIN       |
 
+## Compression Technique:
+1. Abbreviates Commonly Repeated Substrings Found in the File
+2. Replaces Chars of the Following String w/ Keys Generated Using the "Reserved Char Sequences":
+   * Thus Spaces, the Lowercase Alphabet, and `.,!?-` are the Only Printable Chars Left in the File
+ ```c
+ "\"#$%&()*+,/0123456789:;<=>@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`{|}~\n\t"
+ ```
+3. All Spaces are Converted to Underscores
+4. W/ Only 32 Different Printable Characters Left, Each are Bit-Packed into 5 Bits Rather than 8
+5. Recruiter's Mind is Blown That a Freshman Came up w/ This and Shoots Me an Email ASAP (_that would be you_)
+
+  
 ---------------------------------------
-### `ziptxt.c` Compression via Replaced Repeated Substrings:
-**LENGTH:** 50, **STRING:** yo how are you howard hope your homework went well<br/>
-**LENGTH:** 25, **STRING:** AC DECDdBpErBmeworkFntFll<br/>
-**KEY (_Stored in Password as Binary File_):**
-* A: yo
-* B: \_ho
-* C: Bw
-* D: ar
-* E: e_Au
-* F: \_we
+## 3 Reserved Character Sequences for Compression:
+* "`qx`", "`qy`", _&_ "`qz`" _are **NOT** to be used in any_ `.txt` _being compressed_
+* `fz1p.c` _will preemptively scan files to warn the client if any of the above are found_
