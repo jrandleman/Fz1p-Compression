@@ -1,5 +1,5 @@
 # Fz1p.c
-## _Lossless Text Compression Via Substring Substitution & Bitpacking!_
+## _Lossless Text Compression Via Substring Substitution & Bit Packing!_
 ---------------------------------------
 ## Compilation and Initialization:
 \<COMPILE> `$ gcc -o fz1p fz1p.c`</br>
