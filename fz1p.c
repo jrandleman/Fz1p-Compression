@@ -288,7 +288,11 @@ void read_uncompr_text(char s[], char *arg1, int *original_length) {
   char buff[500];
   FLOOD_ZEROS(buff, 500);
   int count = 0, cw_tot;
-  while(fgets(buff, 500, fp) != NULL) { strcpy(&s[count], buff); count += (strlen(buff)); }
+  while(fgets(buff, 500, fp) != NULL) { 
+    strcpy(&s[count], buff); 
+    count += (strlen(buff)); 
+    FLOOD_ZEROS(buff, 500);
+  }
   fclose(fp);
   *original_length = strlen(s);
   check_for_reserved_qx_qy_qz_char_sequences(s); /* confirm file contains no "qx", "qy", or "qz" reserved char sequences */
@@ -300,7 +304,7 @@ void read_uncompr_text(char s[], char *arg1, int *original_length) {
   if(zip_info) printf("\nCommon Words/Phrases Compressed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", cw_tot, cw_ratio, s);
 }
 void write_compr_text(char filename[], int PASSED_STR_TOTAL, unsigned char packed_uch[]) {
-  unsigned short write_size = (unsigned short)PASSED_STR_TOTAL;
+  unsigned int write_size = (unsigned int)PASSED_STR_TOTAL;
   unsigned char cw_write_length = FULL_CW_LEN - CW_LEN, lcw_length = (unsigned char)lcwIdx;
   int PACKED_UCH_TOTAL = SHIFT_CHAR_TOTAL(PASSED_STR_TOTAL);
   FILE *fp;
@@ -308,7 +312,7 @@ void write_compr_text(char filename[], int PASSED_STR_TOTAL, unsigned char packe
   fwrite(&lcw_length, sizeof(unsigned char), 1, fp); /* write local common words length */
   fwrite(&cw_write_length, sizeof(unsigned char), 1, fp); /* write modified cw_keys idxs length */
   fwrite(cw_shift_up_idxs, sizeof(unsigned char), cw_write_length, fp); /* write modified cw_keys idxs array */
-  fwrite(&write_size, sizeof(unsigned short), 1, fp); /* write uncompressed/original file length */
+  fwrite(&write_size, sizeof(unsigned int), 1, fp); /* write uncompressed/original file length */
   fwrite(packed_uch, sizeof(unsigned char), PACKED_UCH_TOTAL, fp); /* write compressed text */
   fclose(fp);
   int pack_tot = PASSED_STR_TOTAL - PACKED_UCH_TOTAL;
@@ -316,7 +320,7 @@ void write_compr_text(char filename[], int PASSED_STR_TOTAL, unsigned char packe
   if(zip_info==1){printf("\nBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n",pack_tot,pack_ratio);PRINT_UCH(PACKED_UCH_TOTAL,packed_uch);printf("\n");}
 }
 void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL, unsigned char packed_uch[], unsigned char unpacked_uch[]) {
-  unsigned short read_size;
+  unsigned int read_size;
   unsigned char cw_read_length, lcw_length;
   init_decompr_arr(unpacked_str); /* init unpacked_str with 0's to clear garbage memory for bitpacking */
   init_compr_arr(unpacked_uch); /* init 0's to clear garbage memory */
@@ -326,7 +330,7 @@ void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL,
   lcwIdx = (int)lcw_length;
   fread(&cw_read_length, sizeof(unsigned char), 1, fp); /* read modified cw_keys idxs length */
   fread(cw_shift_up_idxs, sizeof(unsigned char), cw_read_length, fp); /* read modified cw_keys idxs array */
-  fread(&read_size, sizeof(unsigned short), 1, fp); /* read uncompressed/original file length */
+  fread(&read_size, sizeof(unsigned int), 1, fp); /* read uncompressed/original file length */
   *PASSED_STR_TOTAL = (int)read_size;
   int read_char_total = SHIFT_CHAR_TOTAL(read_size);
   fread(packed_uch, sizeof(unsigned char), read_char_total, fp); /* read compressed text */
