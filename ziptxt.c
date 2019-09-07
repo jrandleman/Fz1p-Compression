@@ -638,7 +638,7 @@ int pack_ss_keys(char *arg2) {
   /* PACK SS_KEYS */
   int passed_length = strlen(ss_single_str), char_total = SS_KEY_UCH_TOT(strlen(ss_single_str)), i, j, k;
   unsigned char cw_write_length = FULL_CW_LEN - CW_LEN, packed_str[char_total], passed_uch[passed_length];
-  unsigned short char_total_uch = (unsigned short)char_total;
+  unsigned int char_total_uch = (unsigned int)char_total;
   FLOOD_ZEROS(packed_str, char_total);
   FLOOD_ZEROS(passed_uch, passed_length);
   swap_str_sign(ss_single_str, passed_uch, passed_length, 1); /* convert passed string into uchar str */
@@ -654,7 +654,7 @@ int pack_ss_keys(char *arg2) {
   myAssert((fp = fopen(filename, "wb")),"\n (!!!) ERROR WRITING PACKED SS KEYS TO BINARY FILE (!!!) \n");
   fwrite(&cw_write_length, sizeof(unsigned char), 1, fp); /* write modified cw_keys idxs length */
   fwrite(cw_shift_up_idxs, sizeof(unsigned char), cw_write_length, fp); /* write modified cw_keys idxs array */
-  fwrite(&char_total_uch, sizeof(unsigned short), 1, fp); /* write ss_keys compr length */
+  fwrite(&char_total_uch, sizeof(unsigned int), 1, fp); /* write ss_keys compr length */
   fwrite(packed_str, sizeof(unsigned char), char_total, fp); /* write ss_keys compr array */
   printf("\n>>> SIZE: %d - FILE CREATED: %s\n", (char_total + 3 + cw_write_length), filename);
   fclose(fp);
@@ -662,7 +662,7 @@ int pack_ss_keys(char *arg2) {
 }
 void unpack_ss_keys(char *arg2) {
   /* READ PACKED SS KEYS FROM FILE */
-  unsigned short char_total_uch;
+  unsigned int char_total_uch;
   unsigned char cw_read_length;
   char filename[75], txtfilename[75], unpacked_str[MAX_CH];
   FLOOD_ZEROS(filename, 75);
@@ -674,7 +674,7 @@ void unpack_ss_keys(char *arg2) {
   myAssert((fp = fopen(filename, "rb")),"\n (!!!) ERROR READING PACKED SS KEYS FROM BINARY FILE (!!!) \n");
   fread(&cw_read_length, sizeof(unsigned char), 1, fp); /* read modified cw_keys idxs length */
   fread(cw_shift_up_idxs, sizeof(unsigned char), cw_read_length, fp); /* read modified cw_keys idxs array */
-  fread(&char_total_uch, sizeof(unsigned short), 1, fp); /* read ss_keys compr length */
+  fread(&char_total_uch, sizeof(unsigned int), 1, fp); /* read ss_keys compr length */
   int char_total = (int)char_total_uch, i, j, k;
   int str_total = SS_KEY_STR_TOT(char_total);
   unsigned char packed_str[char_total], unpacked_uch[str_total];
