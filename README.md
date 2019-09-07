@@ -24,9 +24,7 @@
  ```
 3. All Spaces are Converted to Underscores
 4. W/ Only 32 Different Printable Characters Left, Each are Bit-Packed into 5 Bits Rather than 8
-5. Recruiter's Mind is Blown That a Freshman Came up w/ This and Shoots Me an Email ASAP (_that would be you_)
-
-  
+5. ***Mind = Blown***
 ---------------------------------------
 ## 3 Reserved Character Sequences for Compression:
 * "`qx`", "`qy`", _&_ "`qz`" _are **NOT** to be used in any_ `.txt` _being compressed_
