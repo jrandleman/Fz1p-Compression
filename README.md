@@ -23,7 +23,7 @@
  "\"#$%&()*+,/0123456789:;<=>@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`{|}~\n\t"
  ```
 3. All Spaces are Converted to Underscores
-4. W/ Only 32 Different Printable Characters Left, Each are Bit-Packed into 5 Bits Rather than 8
+4. W/ Only 32 Different Printable Characters Left, Each are Bit-Packed Into 5 Bits Rather Than 8
 5. ***Mind = Blown***
 ---------------------------------------
 ## 3 Reserved Character Sequences for Compression:
