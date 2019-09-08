@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <sys/stat.h>
+#include <time.h>
 #define MAX_CH 1000000
 #define COMPR_MEM(UCH_TOT) (6 + (FULL_CW_LEN - CW_LEN) + (UCH_TOT)) /* lcw l + key l & arr + uncompr l + compr arr */
 #define COMPR_RATIO(NEW,OLD) (100*(1.000000 - (((float)NEW)/((float)OLD))))
@@ -27,7 +28,7 @@
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)],APPEND);})
 #define RMV_FILENAME_EXTENSION(OLD_FNAME,NEW_FNAME) ({strcpy(NEW_FNAME,OLD_FNAME);NEW_FNAME[strlen(OLD_FNAME)-5]='\0';})
 #define HAS_EXTENSION(S,EXT) (strcmp(&S[strlen(S)-strlen(EXT)], EXT) == 0)
-#define PRINT_UCH(LEN,UCH) ({int p_idx; for(p_idx = 0; p_idx < (LEN); ++p_idx) printf("%c", UCH[p_idx]);})
+#define PRINT_HEX(LEN,UCH) ({int p_idx; for(p_idx = 0; p_idx < (LEN); ++p_idx) sprintf(&BPACK_zip_info_BUFF[strlen(BPACK_zip_info_BUFF)], "<%#04x>", UCH[p_idx]);})
 #define NEED_TO_UPDATE_ARRS(IDX) (IDX != 0 && IDX % 12 == 0)
 #define ITER_NUM(N,X,Y) ((((N + X) / 2) * 3) - Y)
 #define MULT_8(N) ((N) % 8 == 0)
@@ -35,12 +36,14 @@
 #define SHIFT_CHAR_TOTAL(X) ((5*(X/8))+(M8D(X)>0)+(M8D(X)>1)+(M8D(X)>3)+(M8D(X)>4)+(M8D(X)>6))
 #define IS_LOW_CH(CH) ((CH) >= 'a' && (CH) <= 'z')
 #define IS_PUNC(CH) ((CH) == '.' || (CH) == '!' || (CH) == '?')
-#define __PROGRAM__ ({char NAME[150];char*p=&__FILE__[strlen(__FILE__)-1];while(*(p-1)!='/')p--;strcpy(NAME,p);NAME;})
+#define __PROGRAM__ ({char NAME[150];char*p=&__FILE__[strlen(__FILE__)-1];while(*(p-1)!='/')--p;strcpy(NAME,p);NAME;})
 #define myAssert(C,M)\
   ({if(C==NULL){fprintf(stderr, "\n=> myAssert Failed: %s, program: %s, function: %s(), line: %d\n%s\n",#C,__PROGRAM__,__FUNCTION__,__LINE__,M);exit(0);}})
 #define local_cw_mem_saved(STR,FREQ) ((strlen((STR)) * (FREQ)) - (strlen((STR)) + (2 * (FREQ))) - 1) /* -1 for '_' tailing pre-file local_cw word array */
 #define local_cw_worth_sub(S,F) ((strlen((S))==3) ? ((F)>4) : (strlen((S))==4||strlen((S))==5) ? ((F)>2) : ((strlen((S))>5) && ((F)>1)))
 #define lcw_end(CH1,CH2) ((CH1) == '_' || ((IS_PUNC((CH1)) || (CH1) == '-') && ((CH2) == '_' || ((CH2) == '\0'))))
+#define EQUALx80 "================================================================================"
+#define ASCII_ESC 27
 /* MAIN HIDE / SHOW HANDLERS */
 void HIDE_HANDLER(char *, char *);
 void SHOW_HANDLER(char *, char *);
@@ -69,10 +72,16 @@ void increment_idx_shift_arrs(int *, int [], int []);
 /* STRING EDITING FUNCITONS */
 void modify_str(char *, bool);
 bool is_at_substring(char *, char *);
+/* ANIMATED "SPINNER" & LOADING BAR FUNCTIONS */
+void output_load_progress();
+void animate_loading_spinner(bool *, bool *, bool *, bool *);
+void remove_loading_spinner();
+void start_loading_spinner();
 /* NON-BITPACKABLE CHARACTER SUBSTITUTION FUNCTIONS */
-void sub_out_replaceable_chars(char *);
-void sub_back_in_replaceable_chars(char *);
+int sub_out_non_bitpackable_chars(char *);
+void sub_back_in_non_bitpackable_chars(char *);
 /* COMMON WORD SUBSTITUTIONS */
+int remove_duplicate_cw_idxs(int [], int, int);
 void splice_str(char *, char *, int);
 void delta_sub_common_words(char *, char [][50], char [][50], bool);
 /* FILE-LOCAL COMMON WORD SUBSTITUTIONS */
@@ -163,6 +172,7 @@ char SUB_KEYS[TOTAL_REPLACEABLE_CHARS][5] = {
 };
 /* GLOBAL VARIABLES */
 unsigned char CW_LEN = FULL_CW_LEN, cw_shift_up_idxs[FULL_CW_LEN]; /* store indices of rmvd cw_keys */
+char CMPR_zip_info_BUFF[MAX_CH], BPACK_zip_info_BUFF[MAX_CH], CWS_zip_info_BUFF[MAX_CH]; /* store data to ouput at end if "-l" present */
 int lcwIdx = 0; /* output compresion/decompresion progress */
 bool zip_info = false;
 int main(int argc, char *argv[]) {
@@ -170,6 +180,9 @@ int main(int argc, char *argv[]) {
   char filename[75], arg1[75];
   FLOOD_ZEROS(filename, 75); 
   FLOOD_ZEROS(arg1, 75); 
+  FLOOD_ZEROS(CWS_zip_info_BUFF, MAX_CH); 
+  FLOOD_ZEROS(CMPR_zip_info_BUFF, MAX_CH); 
+  FLOOD_ZEROS(BPACK_zip_info_BUFF, MAX_CH); 
   if(argc == 3) {
     strcpy(arg1, argv[2]);
     (strcmp(argv[1], "-l") == 0) ? (zip_info = true) : (fprintf(stderr, "\n\n(!!!) WRONG INFO FLAG => -l (!!!)\n\n"));
@@ -188,6 +201,8 @@ int main(int argc, char *argv[]) {
 * MAIN HIDE / SHOW HANDLERS
 ******************************************************************************/
 void HIDE_HANDLER(char arg1[], char *filename) {
+  /* START FZ1P.C TIMER */
+  clock_t timer = clock();
   /* READ ARG1 FILE & PREP TEXT FOR COMPRESSION */
   char passed_str[MAX_CH];
   FLOOD_ZEROS(passed_str, MAX_CH);
@@ -198,18 +213,28 @@ void HIDE_HANDLER(char arg1[], char *filename) {
   unsigned char packed_uch[MAX_CH];
   FLOOD_ZEROS(packed_uch, MAX_CH);
   hash_pack_handler(PASSED_STR_TOTAL, passed_str, packed_uch);
+  output_load_progress();
   /* WRITE PACKED HASHED TEXT TO FILE */
   int compr_bytes = COMPR_MEM(SHIFT_CHAR_TOTAL(PASSED_STR_TOTAL));
   write_compr_text(filename, PASSED_STR_TOTAL, packed_uch);
+  /* ASCII_ESC code removes terminal styles once loading bar complete */
+  fprintf(stdout, "=====]%c[0m\n", ASCII_ESC);
+  fflush(stdout);
   /* OUPUT COMPRESSION RESULTS */
   float total_saved_bytes_ratio = COMPR_RATIO(compr_bytes, original_length); 
-  printf("\n==============================================================================");
-  printf("\n%s ==COMPRESS=> %s\n", arg1, filename);
+  if(zip_info) printf("%s%s%s", CWS_zip_info_BUFF, CMPR_zip_info_BUFF, BPACK_zip_info_BUFF);
+  /* END FZ1P.C TIMER */
+  timer = clock() - timer;
+  double fz1p_time_taken = ((double)timer) / CLOCKS_PER_SEC;
+  printf("\n%s", EQUALx80);
+  printf("\n%s ==COMPRESS=> %s (TIME: %.2f sec.)\n", arg1, filename, fz1p_time_taken);
   printf(">> BYTES => UNCOMPRESSED: %d, COMPRESSED: %d, COMPRESSION RATE: %.2f%%\n", original_length, compr_bytes, total_saved_bytes_ratio);
-  printf("==============================================================================\n\n");
+  printf("%s\n\n", EQUALx80);
   delete_original_file_option(arg1);
 }
 void SHOW_HANDLER(char *arg1, char *filename) {
+  /* START FZ1P.C TIMER */
+  clock_t timer = clock();
   /* READ PACKED HASHED TEXT FROM FILE */
   char unpacked_str[MAX_CH];
   FLOOD_ZEROS(unpacked_str, MAX_CH);
@@ -218,11 +243,16 @@ void SHOW_HANDLER(char *arg1, char *filename) {
   FLOOD_ZEROS(packed_uch, MAX_CH);
   FLOOD_ZEROS(unpacked_uch, MAX_CH);
   read_compr_text(arg1, unpacked_str, &PASSED_STR_TOTAL, packed_uch, unpacked_uch);
+  output_load_progress();
   /* UNPACK & DEHASH TEXT */
   unpack_dehash_handler(PASSED_STR_TOTAL, unpacked_str, packed_uch, unpacked_uch);
-  printf("\n==============================================================================");
-  printf("\n>> %s ==DECOMPRESS=> %s\n", arg1, filename);
-  printf("==============================================================================\n\n");
+  /* END FZ1P.C TIMER */
+  timer = clock() - timer;
+  double fz1p_time_taken = ((double)timer) / CLOCKS_PER_SEC;
+  if(zip_info) printf("%s%s%s", CWS_zip_info_BUFF, CMPR_zip_info_BUFF, BPACK_zip_info_BUFF);
+  printf("\n%s", EQUALx80);
+  printf("\n>> %s ==DECOMPRESS=> %s (TIME: %.2f sec)\n", arg1, filename, fz1p_time_taken);
+  printf("%s\n\n", EQUALx80);
   /* WRITE unpacked_str[] BACK TO ARG1 TEXT FILE */
   FILE *fp;
   myAssert((fp = fopen(filename, "w")), "\n\n(!!!) ERROR WRITING DECOMPRESSED TEXT FILE (!!!)\n\n");
@@ -272,11 +302,11 @@ void confirm_valid_file(char *filename) { /* confirms file exists, non-empty, & 
 void err_info() {
   fprintf(stderr, "\n============================= INVALID EXECUTION! =============================\n");
   fprintf(stderr, "$ gcc -o fz1p fz1p.c\n<COMPRESS>   $ ./fz1p filename.txt\n<DECOMPRESS> $ ./fz1p filename.txt.FZ1P\n");
-  fprintf(stderr, "==============================================================================\n");
+  fprintf(stderr, "%s\n", EQUALx80);
   fprintf(stderr, "=> COMPRESSION INFORMATION: $ ./fz1p -l filename.extension\n");
-  fprintf(stderr, "==============================================================================\n");
+  fprintf(stderr, "%s\n", EQUALx80);
   fprintf(stderr, "=> RESERVED CHAR SEQUENCES: \"qx\", \"qy\", & \"qz\"\n");
-  fprintf(stderr, "==============================================================================\n\n");
+  fprintf(stderr, "%s\n\n", EQUALx80);
   exit(0);
 }
 /******************************************************************************
@@ -287,7 +317,14 @@ void read_uncompr_text(char s[], char *arg1, int *original_length) {
   myAssert((fp = fopen(arg1, "r")), "\n\n(!!!) ERROR READING UNCOMPRESSED TEXT FILE (!!!)\n\n");
   char buff[500];
   FLOOD_ZEROS(buff, 500);
-  int count = 0, cw_tot;
+  int count = 0, cw_tot, total_non_bitpackable_chars = 0;
+  /* ASCII_ESC codes: green background, black text, bold font (undone once loading bar terminates) */
+  fprintf(stdout, "\n%c[48;5;82m%c[30m%c[1mCOMPRESSION PROGRESS: [=====                                             ]", ASCII_ESC, ASCII_ESC, ASCII_ESC);
+  fflush(stdout);
+  /* moves cursor 26 character back to start of '=' to continue loading bar */
+  fprintf(stdout, "%c[46D", ASCII_ESC); 
+  fflush(stdout);
+  /* read file */
   while(fgets(buff, 500, fp) != NULL) { 
     strcpy(&s[count], buff); 
     count += (strlen(buff)); 
@@ -296,12 +333,19 @@ void read_uncompr_text(char s[], char *arg1, int *original_length) {
   fclose(fp);
   *original_length = strlen(s);
   check_for_reserved_qx_qy_qz_char_sequences(s); /* confirm file contains no "qx", "qy", or "qz" reserved char sequences */
-  sub_out_replaceable_chars(s); /* substitute out non-bitpackable chars */
+  output_load_progress();
+  total_non_bitpackable_chars = sub_out_non_bitpackable_chars(s); /* substitute out non-bitpackable chars */
+  output_load_progress();
   hide_adjust_cw_keys(s);
+  output_load_progress();
   modify_str(s, true); /* prep s for compression */
+  output_load_progress();
   cw_tot = *original_length - strlen(s);
   float cw_ratio = COMPR_RATIO(strlen(s), *original_length);
-  if(zip_info) printf("\nCommon Words/Phrases Compressed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n", cw_tot, cw_ratio, s);
+  if(zip_info)
+    sprintf(CMPR_zip_info_BUFF,
+      "\n%s\n>> Total Non-BitPackable Chars Replaced: %d\n%s\n\n>> Common Words/Phrases Compressed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n\n", 
+      EQUALx80, total_non_bitpackable_chars, EQUALx80, cw_tot, cw_ratio, s);
 }
 void write_compr_text(char filename[], int PASSED_STR_TOTAL, unsigned char packed_uch[]) {
   unsigned int write_size = (unsigned int)PASSED_STR_TOTAL;
@@ -317,7 +361,11 @@ void write_compr_text(char filename[], int PASSED_STR_TOTAL, unsigned char packe
   fclose(fp);
   int pack_tot = PASSED_STR_TOTAL - PACKED_UCH_TOTAL;
   float pack_ratio = COMPR_RATIO(PACKED_UCH_TOTAL, PASSED_STR_TOTAL);
-  if(zip_info==1){printf("\nBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n",pack_tot,pack_ratio);PRINT_UCH(PACKED_UCH_TOTAL,packed_uch);printf("\n");}
+  if(zip_info) {
+    sprintf(BPACK_zip_info_BUFF, "\n>> Bit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n", pack_tot, pack_ratio);
+    PRINT_HEX(PACKED_UCH_TOTAL,packed_uch);
+    sprintf(&BPACK_zip_info_BUFF[strlen(BPACK_zip_info_BUFF)], "\n");
+  }
 }
 void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL, unsigned char packed_uch[], unsigned char unpacked_uch[]) {
   unsigned int read_size;
@@ -325,6 +373,12 @@ void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL,
   init_decompr_arr(unpacked_str); /* init unpacked_str with 0's to clear garbage memory for bitpacking */
   init_compr_arr(unpacked_uch); /* init 0's to clear garbage memory */
   FILE *fp;
+  fprintf(stdout, "\n%c[48;5;82m%c[30m%c[1mDECOMPRESSION PROGRESS: [=====                                             ]", ASCII_ESC, ASCII_ESC, ASCII_ESC);
+  fflush(stdout);
+  /* moves cursor 26 character back to start of '=' to continue loading bar */
+  fprintf(stdout, "%c[46D", ASCII_ESC); 
+  fflush(stdout);
+  /* read file */
   myAssert((fp = fopen(filename, "rb")), "\n\n(!!!) ERROR READING COMPRESSED TEXT FROM BINARY FILE (!!!)\n\n");
   fread(&lcw_length, sizeof(unsigned char), 1, fp); /* read local common words length */
   lcwIdx = (int)lcw_length;
@@ -336,8 +390,14 @@ void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL,
   fread(packed_uch, sizeof(unsigned char), read_char_total, fp); /* read compressed text */
   fclose(fp);
   remove(filename);
+  output_load_progress();
   show_adjust_cw_keys(cw_read_length);
-  if(zip_info){ printf("\nBit-Packed:\n"); PRINT_UCH(read_char_total, packed_uch); printf("\n"); }
+  output_load_progress();
+  if(zip_info) { 
+    sprintf(BPACK_zip_info_BUFF, "\n>> Bit-Packed:\n"); 
+    PRINT_HEX(read_char_total, packed_uch); 
+    sprintf(&BPACK_zip_info_BUFF[strlen(BPACK_zip_info_BUFF)], "\n"); 
+  }
 }
 void delete_original_file_option(char *arg1) {
   int delete_original_text_file;
@@ -374,10 +434,16 @@ void unpack_dehash_handler(int PASSED_STR_TOTAL, char unpacked_str[], unsigned c
     if(shift_right[j] == 1) { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] >> bit_shift_nums[j]) & 31)); }
     else { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] << bit_shift_nums[j]) & 31)); }
   }
+  output_load_progress();
   dehash_show(PASSED_STR_TOTAL, unpacked_str, unpacked_uch);
-  if(zip_info) printf("\nCommon Words/Phrases Compressed:\n%s\n", unpacked_str);
+  output_load_progress();
+  if(zip_info) sprintf(CMPR_zip_info_BUFF, "\n\n>> Common Words/Phrases Compressed:\n%s\n", unpacked_str);
   modify_str(unpacked_str, false); /* revert unpacked_str back to pre-compression format */
-  sub_back_in_replaceable_chars(unpacked_str); /* resubstitute in non-bitpackable chars to file */
+  output_load_progress();
+  sub_back_in_non_bitpackable_chars(unpacked_str); /* resubstitute in non-bitpackable chars to file */
+  /* ASCII_ESC code removes terminal styles once loading bar complete */
+  fprintf(stdout, "=====]%c[0m\n", ASCII_ESC);
+  fflush(stdout);
 }
 void hash_hide(int len, char passed_str[], unsigned char passed_uch[]) {
   int i; for(i = 0; i < len; ++i) passed_uch[i] = hide_hash_value(passed_str[i]);
@@ -421,16 +487,20 @@ void increment_idx_shift_arrs(int *j, int pack_ch_idx[], int unpack_uch_idx[]) {
 ******************************************************************************/
 void modify_str(char *s, bool hide_flag) { 
   char *p = s, space = ' ', under_s = '_';
-  if(hide_flag) {       /* HIDE */
+  if(hide_flag) { /* HIDE */
     while(*p != '\0') {
       if(*p == space) *p = under_s; /* ' ' => '_' */
       ++p;
     }
+    output_load_progress();
     delta_sub_common_words(s, cw_word, cw_keys, true);
+    output_load_progress();
     hide_handle_local_cws(s); /* find and append local common words in front of text */
   } else { /* SHOW */
     show_handle_local_cws(s); /* read and rmv prepended local common words */
+    output_load_progress();
     delta_sub_common_words(s, cw_keys, cw_word, false);
+    output_load_progress();
     while(*p != '\0') {
       if(*p == under_s) *p = space;
       ++p;
@@ -444,19 +514,55 @@ bool is_at_substring(char *p, char *substr) {
   return true;
 }
 /******************************************************************************
+* ANIMATED "SPINNER" & LOADING BAR FUNCTIONS
+******************************************************************************/
+void output_load_progress() {
+  fprintf(stdout, "=====");
+  fflush(stdout);
+}
+void animate_loading_spinner(bool *upflag, bool *upleftflag, bool *sideflag, bool *downrightflag) {
+  if(*upflag) {
+    fprintf(stdout, "\b|");
+    *upflag = false;
+    *upleftflag = true;
+  } else if(*upleftflag) {
+    fprintf(stdout, "\b/");
+    *upleftflag = false;
+    *sideflag = true;
+  } else if(*sideflag) {
+    fprintf(stdout, "\b-");
+    *sideflag = false;
+    *downrightflag = true;
+  } else if(*downrightflag) {
+    fprintf(stdout, "\b\\");
+    *downrightflag = false;
+    *upflag = true;
+  } 
+  fflush(stdout);
+}
+void remove_loading_spinner() {
+  fprintf(stdout, " \b\b \b\b");
+  fflush(stdout);
+}
+void start_loading_spinner() {
+  fprintf(stdout, "  ");
+  fflush(stdout);
+}
+/******************************************************************************
 * NON-BITPACKABLE CHARACTER SUBSTITUTION FUNCTIONS
 ******************************************************************************/
-void sub_out_replaceable_chars(char *str) { /* Replace non-bitpackable chars with substitute keys */
+int sub_out_non_bitpackable_chars(char *str) { /* Replace non-bitpackable chars with substitute keys */
   char buf[MAX_CH];
   FLOOD_ZEROS(buf, MAX_CH);
   char *p = str, *q = buf;
-  int i = 0;
+  int i = 0, total_non_bitpackable_chars = 0;
   while(*p != '\0') {                             /* traverse through string */
     for(i = 0; i < TOTAL_REPLACEABLE_CHARS; ++i)  /* search for replaceable characters */
       if(*p == SUB_VALS[i]) {
         strcpy(q, SUB_KEYS[i]);                   /* copy in substitute */
         q += strlen(q);
         ++p;
+        ++total_non_bitpackable_chars;            /* for "-l" flag */
         break;
       }
     if(i == TOTAL_REPLACEABLE_CHARS) *q++ = *p++; /* not at replaceable char, thus copy */
@@ -464,13 +570,17 @@ void sub_out_replaceable_chars(char *str) { /* Replace non-bitpackable chars wit
   *q = '\0';
   FLOOD_ZEROS(str, MAX_CH);
   strcpy(str, buf);
+  return total_non_bitpackable_chars;             /* for "-l" flag */
 }
-void sub_back_in_replaceable_chars(char *str) { /* Resub non-bitpackable chars back into the string */
+void sub_back_in_non_bitpackable_chars(char *str) { /* Resub non-bitpackable chars back into the string */
   char buf[MAX_CH];
   FLOOD_ZEROS(buf, MAX_CH);
   char *p = str, *q = buf;
   int i = 0;
+  bool upflag = true, upleftflag = false, sideflag = false, downrightflag = false;
+  start_loading_spinner();
   while(*p != '\0') {                             /* traverse through string */
+    animate_loading_spinner(&upflag, &upleftflag, &sideflag, &downrightflag);
     for(i = 0; i < TOTAL_REPLACEABLE_CHARS; ++i)  /* search for replaceable characters */
       if(is_at_substring(p, SUB_KEYS[i])) {
         *q++ = SUB_VALS[i];                       /* re-substitute in replaceable char */
@@ -482,14 +592,33 @@ void sub_back_in_replaceable_chars(char *str) { /* Resub non-bitpackable chars b
   *q = '\0';
   FLOOD_ZEROS(str, MAX_CH);
   strcpy(str, buf);
+  remove_loading_spinner();
 }
 /******************************************************************************
 * COMMON WORD SUBSTITUTION FUNCTIONS
 ******************************************************************************/
+int remove_duplicate_cw_idxs(int idxs_of_found_cw[], int found_cw_count, int original_size) {
+  int idxs_of_unique_found_cw[FULL_CW_LEN], unique_cw_count = 0, i, j;
+  FLOOD_ZEROS(idxs_of_unique_found_cw, FULL_CW_LEN);
+  for(i = 0; i < found_cw_count; ++i) { /* for each found cw index */
+    for(j = 0; j < unique_cw_count && idxs_of_unique_found_cw[j] != idxs_of_found_cw[i]; ++j); /* for each unique cw index */
+    if(j == unique_cw_count) /* add idx if not found in "idxs_of_unique_found_cw" */
+      idxs_of_unique_found_cw[unique_cw_count++] = idxs_of_found_cw[i];
+  }
+  FLOOD_ZEROS(idxs_of_found_cw, original_size); /* empty old idxs & refill w/ only unique instances of each idx */
+  for(i = 0; i < unique_cw_count; ++i) 
+    idxs_of_found_cw[i] = idxs_of_unique_found_cw[i];
+  return unique_cw_count;
+}
 void delta_sub_common_words(char *s, char remove[][50], char insert[][50], bool hide_flag) {
   int word_len, i, j, condition;
+  int idxs_of_found_cw[MAX_CH], found_cw_count = 0; /* for "-l" flag */
+  FLOOD_ZEROS(idxs_of_found_cw, MAX_CH);
   (hide_flag) ? (i = 0) : (i = CW_LEN - 1); /* traverse the cw matrix forwards on hide & backwards on show */
+  bool upflag = true, upleftflag = false, sideflag = false, downrightflag = false;
+  start_loading_spinner();
   while(1) {
+    animate_loading_spinner(&upflag, &upleftflag, &sideflag, &downrightflag);
     (hide_flag) ? (condition = (i < CW_LEN)) : (condition = (i >= 0));
     if(!condition) break;
     char *p = s;
@@ -497,12 +626,27 @@ void delta_sub_common_words(char *s, char remove[][50], char insert[][50], bool 
     while(*p != '\0') {
       if(*p == remove[i][0]) {
         for(j = 0; j < word_len; ++j) if(*(p + j) != remove[i][j]) break;
-        if(j == word_len) splice_str(p, insert[i], word_len); /* if word in s is common word */
+        if(j == word_len) {
+          if(zip_info) idxs_of_found_cw[found_cw_count++] = i; /* for "-l" flag */
+          splice_str(p, insert[i], word_len); /* if word in s is common word */
+        }
       } else if(IS_PUNC(*p)) { ++p; } /* avoid chaining word subs */
       ++p;
     }
-    (hide_flag) ? (++i) : (i--);
+    (hide_flag) ? (++i) : (--i);
   }
+  if(zip_info) { /* if "-l" output replaced common words */
+    found_cw_count = remove_duplicate_cw_idxs(idxs_of_found_cw, found_cw_count, MAX_CH);
+    sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "\n%s\nCOMMON WORDS FOUND & REPLACED (%d TOTAL):\n\n", EQUALx80, found_cw_count);
+    for(i = 0; i < found_cw_count; ++i) {
+      if(strlen(remove[idxs_of_found_cw[i]]) < 8)
+         sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t\t", i + 1, remove[idxs_of_found_cw[i]]);
+       else
+        sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t", i + 1, remove[idxs_of_found_cw[i]]);
+      sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%s\n", insert[idxs_of_found_cw[i]]);
+    }
+  }
+  remove_loading_spinner();
 }
 void splice_str(char *s, char *sub, int splice_len) {
   char temp[MAX_CH]; 
@@ -528,6 +672,7 @@ void hide_handle_local_cws(char s[]) {
       files_first_word = 1, p = q; /* move p to the next word */
     } else { ++p; }
   }
+  output_load_progress();
   for(j = 0; j < all_lcwIdx; ++j) if(local_cw_worth_sub(all_local_cws[j].cw, all_local_cws[j].freq)) keep_local_word(j); /* eliminate ineffective lcw's */
   if(lcwIdx >= FULL_CW_LEN) handle_capped_lcwIdx(); /* trim least-memory-saving-lcws if cap of 255 passed => anomaly, but just in case */
   for(j=0; j<lcwIdx; ++j) {sprintf(&lcw_write_array[buff_idx],"%s_",local_cws[j].cw); buff_idx+=(strlen(local_cws[j].cw)+1);} /* prepend cws to file txt */
@@ -552,21 +697,50 @@ void show_handle_local_cws(char s[]) {
 }
 void delta_sub_local_common_words(char s[], bool hide_flag) {
   int word_len, i, j;
+  int idxs_of_found_cw[MAX_CH/2], found_cw_count = 0; /* for "-l" flag */
+  bool upflag = true, upleftflag = false, sideflag = false, downrightflag = false;
+  start_loading_spinner();
+  FLOOD_ZEROS(idxs_of_found_cw, MAX_CH/2);
+  char *p, rmv[75], add[75];
   for(i = 0; i < lcwIdx; ++i) {
-    char *p = s, rmv[75], add[75];
+    p = s;
     FLOOD_ZEROS(rmv, 75);
     FLOOD_ZEROS(add, 75);
     if(hide_flag) { strcpy(rmv, local_cws[i].cw); strcpy(add, local_cws[i].sub); } 
     else { strcpy(rmv, local_cws[i].sub); strcpy(add, local_cws[i].cw); }
     word_len = strlen(rmv);
+    animate_loading_spinner(&upflag, &upleftflag, &sideflag, &downrightflag);
     while(*(p + word_len + 1) != '\0') {
       if(*p == '_' && lcw_end(*(p+word_len+1),*(p+word_len+2)) && *(p + 1) == rmv[0]) {
         ++p; for(j = 0; j < word_len; ++j) if(*(p + j) != rmv[j]) break;
-        if(j == word_len) splice_str(p, add, word_len); /* if word in s is local common word */
+        if(j == word_len) {
+          if(zip_info) idxs_of_found_cw[found_cw_count++] = i; /* for "-l" flag */
+          splice_str(p, add, word_len); /* if word in s is local common word */
+        }
       }
       ++p;
     }
   }
+  if(zip_info) { /* if "-l" output replaced common words */
+    found_cw_count = remove_duplicate_cw_idxs(idxs_of_found_cw, found_cw_count, MAX_CH/2);
+    sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "\n%s\nLOCAL COMMON WORDS FOUND & REPLACED (%d TOTAL):\n\n", EQUALx80, found_cw_count);
+    for(i = 0; i < found_cw_count; ++i) {
+      if(hide_flag) {
+        if(strlen(local_cws[idxs_of_found_cw[i]].cw) < 8)
+           sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t\t", i + 1, local_cws[idxs_of_found_cw[i]].cw);
+         else 
+          sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t", i + 1, local_cws[idxs_of_found_cw[i]].cw);
+        sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%s\n", local_cws[idxs_of_found_cw[i]].sub);
+      } else {
+        if(strlen(local_cws[idxs_of_found_cw[i]].sub) < 8)
+           sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t\t", i + 1, local_cws[idxs_of_found_cw[i]].sub);
+         else 
+          sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t", i + 1, local_cws[idxs_of_found_cw[i]].sub);
+        sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%s\n", local_cws[idxs_of_found_cw[i]].cw);
+      }
+    }
+  }
+  remove_loading_spinner();
 }
 void update_local_word_in_struct(char s[], int *all_lcwIdx) {
   int i; for(i = 0; i < (*all_lcwIdx); ++i) if(strcmp(all_local_cws[i].cw, s) == 0) { ++ all_local_cws[i].freq; return; }
@@ -588,7 +762,7 @@ void handle_capped_lcwIdx() {
   int i, j, rmv_amount = lcwIdx - FULL_CW_LEN + 1;
   for(i = 0; i < rmv_amount; ++i) { /* find rmv_amount # of least-memory-saving lcws & rmv them */
     int min = 0; for(j = 0; j < lcwIdx; ++j) if(local_cws[j].mem_saved < local_cws[min].mem_saved) min = j; /* find least-memory-saving lcw */
-    lcwIdx--; for(j = min; j < lcwIdx; ++j) local_cws[j] = local_cws[j + 1]; /* rmv least-memory-saving lcw from local_cws struct */
+    --lcwIdx; for(j = min; j < lcwIdx; ++j) local_cws[j] = local_cws[j + 1]; /* rmv least-memory-saving lcw from local_cws struct */
   }
   for(j = 0; j < FULL_CW_LEN; ++j) strcpy(local_cws[j].sub, local_cw_keys[j]); /* re-assign local_cw_keys to lcws relative to their new position */
 }
@@ -612,7 +786,7 @@ void hide_adjust_cw_keys(char s[]) {
   }
 }
 void show_adjust_cw_keys(unsigned char length) {
-  int i; for(i = 0; i < length; ++i) { shift_up_cw_keys((int)cw_shift_up_idxs[i]); CW_LEN--; }
+  int i; for(i = 0; i < length; ++i) { shift_up_cw_keys((int)cw_shift_up_idxs[i]); --CW_LEN; }
 }
 void shift_up_cw_keys(int idx) {
   int i; for(i = idx; i < (CW_LEN - 1); ++i) { strcpy(cw_keys[i],cw_keys[i+1]); strcpy(cw_word[i],cw_word[i+1]);}
