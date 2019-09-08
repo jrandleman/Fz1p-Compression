@@ -21,7 +21,7 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #define MAX_CH 1000000
-#define COMPR_MEM(UCH_TOT) (4 + (FULL_CW_LEN - CW_LEN) + (UCH_TOT)) /* lcw l + key l & arr + uncompr l + compr arr */
+#define COMPR_MEM(UCH_TOT) (6 + (FULL_CW_LEN - CW_LEN) + (UCH_TOT)) /* lcw l + key l & arr + uncompr l + compr arr */
 #define COMPR_RATIO(NEW,OLD) (100*(1.000000 - (((float)NEW)/((float)OLD))))
 #define FLOOD_ZEROS(arr, len) ({int arr_i = 0;for(; arr_i < len; ++arr_i) arr[arr_i] = 0;})
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)],APPEND);})
