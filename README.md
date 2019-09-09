@@ -16,14 +16,14 @@
 |       50%       |      TXT      |       BIN       |
 
 ## Compression Technique:
-1. Abbreviates Commonly Repeated Substrings Found in the File
-2. Replaces Chars of the Following String w/ Keys Generated Using the "Reserved Char Sequences":
+1. Replaces Chars of the Following String w/ Keys Generated Using the "Reserved Char Sequences":
    * Thus Spaces, the Lowercase Alphabet, and `.,!?-` are the Only Printable Chars Left in the File
  ```c
  "\"#$%&()*+,/0123456789:;<=>@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`{|}~\n\t"
  ```
-3. All Spaces are Converted to Underscores
-4. W/ Only 32 Different Printable Characters Left, Each are Bit-Packed Into 5 Bits Rather Than 8
+2. All Spaces are Converted to Underscores
+3. Abbreviates Commonly Repeated Substrings Found in the File
+4. W/ Only 32 Different Printable Characters Left (Step 1), Each are Bit-Packed Into 5 Bits Rather Than 8
 5. ***Mind = Blown***
 ---------------------------------------
 ## 3 Reserved Character Sequences for Compression:
