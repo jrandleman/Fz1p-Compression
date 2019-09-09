@@ -23,6 +23,7 @@
 #include <time.h>
 #define MAX_CH 1000000
 #define COMPR_MEM(UCH_TOT) (6 + (FULL_CW_LEN - CW_LEN) + (UCH_TOT)) /* lcw l + key l & arr + uncompr l + compr arr */
+#define SAVED_CW_MEM(FREQ, OLD, NEW) ((FREQ) * (strlen(OLD) - strlen(NEW)))
 #define COMPR_RATIO(NEW,OLD) (100*(1.000000 - (((float)NEW)/((float)OLD))))
 #define FLOOD_ZEROS(arr, len) ({int arr_i = 0;for(; arr_i < len; ++arr_i) arr[arr_i] = 0;})
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)],APPEND);})
@@ -90,6 +91,7 @@ int sub_out_non_bitpackable_chars(char *);
 void sub_back_in_non_bitpackable_chars(char *);
 /* COMMON WORD SUBSTITUTIONS */
 int remove_duplicate_cw_idxs(int [], int, int);
+void save_cw_data_for_output(int, int [], int, bool, bool, int [], char [][50], char [][50]);
 void splice_str(char *, char *, int);
 void delta_sub_common_words(char *, char [][50], char [][50], bool);
 /* FILE-LOCAL COMMON WORD SUBSTITUTIONS */
@@ -661,6 +663,33 @@ int remove_duplicate_cw_idxs(int idxs_of_found_cw[], int found_cw_count, int ori
     idxs_of_found_cw[i] = idxs_of_unique_found_cw[i];
   return unique_cw_count;
 }
+void save_cw_data_for_output(int cw_count,int cw_idxs[],int idxs_len,bool hide_flag,bool local_cw,int cw_freq_hashtbl[],char rmv[][50],char add[][50]) {
+  /* only invoked if "-l" zip_info present: saves common word (local & general) info for ouput as program finishes */
+  int total_cw_instances = cw_count, i, saved_mem = 0;
+  cw_count = remove_duplicate_cw_idxs(cw_idxs, cw_count, idxs_len);
+  char *p = &CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], local_header[7], col1[6], col2[6], bytes_sign;
+  (local_cw) ? strcpy(local_header, "LOCAL ") : strcpy(local_header, ""); /* put "LOCAL" in header if relevant */
+  sprintf(p, "\n%s\n%c[1m%c[4m%sCOMMON WORDS FOUND & REPLACED (%d INSTANCES)%c[0m%c[1m:%c[0m\n", 
+    EQUALx80, ASCII_ESC, ASCII_ESC, local_header, total_cw_instances, ASCII_ESC, ASCII_ESC, ASCII_ESC);
+  p += strlen(p);
+  if(hide_flag) strcpy(col1, "INSRT"), strcpy(col2, "RMVD"), bytes_sign = '-';
+  else          strcpy(col1, "RMVD"), strcpy(col2, "INSRT"), bytes_sign = '+';
+  sprintf(p, "\t%c[1m%c[4mFREQ%c[0m\t%c[1m%c[4mBYTES%c[0m\t%c[1m%c[4m%s%c[0m\t%c[1m%c[4m%s%c[0m\n", 
+    ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, col1, ASCII_ESC, ASCII_ESC, ASCII_ESC, col2, ASCII_ESC);
+  p += strlen(p);
+  for(i = 0; i < cw_count; ++i) {
+    saved_mem = (local_cw)  ? SAVED_CW_MEM(cw_freq_hashtbl[cw_idxs[i]], local_cws[cw_idxs[i]].cw, local_cws[cw_idxs[i]].sub)
+              : (hide_flag) ? SAVED_CW_MEM(cw_freq_hashtbl[cw_idxs[i]], rmv[cw_idxs[i]], add[cw_idxs[i]])
+                            : SAVED_CW_MEM(cw_freq_hashtbl[cw_idxs[i]], add[cw_idxs[i]], rmv[cw_idxs[i]]);
+    if(local_cw)
+      sprintf(p, "%02d)\tx%02d\t%c%02d\t%s\t%s\n", i+1, cw_freq_hashtbl[cw_idxs[i]], bytes_sign, saved_mem, local_cws[cw_idxs[i]].sub, local_cws[cw_idxs[i]].cw);
+    else if(hide_flag)
+      sprintf(p, "%02d)\tx%02d\t%c%02d\t%s\t%s\n", i+1, cw_freq_hashtbl[cw_idxs[i]], bytes_sign, saved_mem, add[cw_idxs[i]], rmv[cw_idxs[i]]);
+     else
+      sprintf(p, "%02d)\tx%02d\t%c%02d\t%s\t%s\n", i+1, cw_freq_hashtbl[cw_idxs[i]], bytes_sign, saved_mem, rmv[cw_idxs[i]], add[cw_idxs[i]]);
+    p += strlen(p);
+  }
+}
 void delta_sub_common_words(char *s, char remove[][50], char insert[][50], bool hide_flag) {
   int word_len, i, j, condition;
   int idxs_of_found_cw[MAX_CH], found_cw_count = 0, total_cw_instances; /* for "-l" flag */
@@ -692,27 +721,7 @@ void delta_sub_common_words(char *s, char remove[][50], char insert[][50], bool 
     }
     (hide_flag) ? (++i) : (--i);
   }
-  if(zip_info) { /* if "-l" output replaced common words */
-    total_cw_instances = found_cw_count;
-    found_cw_count = remove_duplicate_cw_idxs(idxs_of_found_cw, found_cw_count, MAX_CH);
-    p = &CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)];
-    sprintf(p, "\n%s\n%c[1m%c[4mCOMMON WORDS FOUND & REPLACED (%d INSTANCES)%c[0m%c[1m:%c[0m\n", 
-      EQUALx80, ASCII_ESC, ASCII_ESC, total_cw_instances, ASCII_ESC, ASCII_ESC, ASCII_ESC);
-    p += strlen(p);
-    char col1[6], col2[6];
-    if(hide_flag) strcpy(col1, "INSRT"), strcpy(col2, "RMVD");
-    else          strcpy(col1, "RMVD"), strcpy(col2, "INSRT");
-    sprintf(p, "\t%c[1m%c[4mFREQ%c[0m\t%c[1m%c[4m%s%c[0m\t%c[1m%c[4m%s%c[0m\n", 
-      ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, col1, ASCII_ESC, ASCII_ESC, ASCII_ESC, col2, ASCII_ESC);
-    p += strlen(p);
-    for(i = 0; i < found_cw_count; ++i) {
-      if(hide_flag)
-         sprintf(p, "%02d)\tx%02d\t%s\t%s\n", i+1, cw_frequency_hash_table[idxs_of_found_cw[i]], insert[idxs_of_found_cw[i]], remove[idxs_of_found_cw[i]]);
-       else
-        sprintf(p, "%02d)\tx%02d\t%s\t%s\n", i+1, cw_frequency_hash_table[idxs_of_found_cw[i]], remove[idxs_of_found_cw[i]], insert[idxs_of_found_cw[i]]);
-      p += strlen(p);
-    }
-  }
+  if(zip_info) save_cw_data_for_output(found_cw_count, idxs_of_found_cw, MAX_CH, hide_flag, false, cw_frequency_hash_table, remove, insert);
   remove_loading_spinner();
 }
 void splice_str(char *s, char *sub, int splice_len) {
@@ -766,6 +775,7 @@ void delta_sub_local_common_words(char s[], bool hide_flag) {
   int word_len, i, j;
   int idxs_of_found_cw[MAX_CH/2], found_cw_count = 0, total_cw_instances; /* for "-l" flag */
   int cw_frequency_hash_table[FULL_CW_LEN]; /* for "-l" flag */
+  char empty1[1][50], empty2[1][50]; /* for "-l" flag: required args for "save_cw_data_for_output" but do nothing in this case */
   bool upflag = true, upleftflag = false, sideflag = false, downrightflag = false;
   start_loading_spinner();
   FLOOD_ZEROS(idxs_of_found_cw, MAX_CH/2);
@@ -793,24 +803,7 @@ void delta_sub_local_common_words(char s[], bool hide_flag) {
       ++p;
     }
   }
-  if(zip_info) { /* if "-l" output replaced common words */
-    total_cw_instances = found_cw_count;
-    found_cw_count = remove_duplicate_cw_idxs(idxs_of_found_cw, found_cw_count, MAX_CH/2);
-    p = &CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)];
-    sprintf(p, "\n%s\n%c[1m%c[4mLOCAL COMMON WORDS FOUND & REPLACED (%d INSTANCES)%c[0m%c[1m:%c[0m\n", 
-      EQUALx80, ASCII_ESC, ASCII_ESC, total_cw_instances, ASCII_ESC, ASCII_ESC, ASCII_ESC);
-    p += strlen(p);
-    char col1[6], col2[6];
-    if(hide_flag) strcpy(col1, "INSRT"), strcpy(col2, "RMVD");
-    else          strcpy(col1, "RMVD"), strcpy(col2, "INSRT");
-    sprintf(p, "\t%c[1m%c[4mFREQ%c[0m\t%c[1m%c[4m%s%c[0m\t%c[1m%c[4m%s%c[0m\n", 
-      ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, col1, ASCII_ESC, ASCII_ESC, ASCII_ESC, col2, ASCII_ESC);
-    p += strlen(p);
-    for(i = 0; i < found_cw_count; ++i) {
-      sprintf(p, "%02d)\tx%02d\t%s\t%s\n",i+1,cw_frequency_hash_table[idxs_of_found_cw[i]],local_cws[idxs_of_found_cw[i]].sub,local_cws[idxs_of_found_cw[i]].cw);
-      p += strlen(p);
-    }
-  }
+  if(zip_info) save_cw_data_for_output(found_cw_count, idxs_of_found_cw, MAX_CH/2, hide_flag, true, cw_frequency_hash_table, empty1, empty2);
   remove_loading_spinner();
 }
 void update_local_word_in_struct(char s[], int *all_lcwIdx) {
