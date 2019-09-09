@@ -28,7 +28,13 @@
 #define ADD_FILENAME_EXTENSION(SEED,EXTEND,APPEND) ({strcpy(EXTEND,SEED);strcpy(&EXTEND[strlen(EXTEND)],APPEND);})
 #define RMV_FILENAME_EXTENSION(OLD_FNAME,NEW_FNAME) ({strcpy(NEW_FNAME,OLD_FNAME);NEW_FNAME[strlen(OLD_FNAME)-5]='\0';})
 #define HAS_EXTENSION(S,EXT) (strcmp(&S[strlen(S)-strlen(EXT)], EXT) == 0)
-#define PRINT_HEX(LEN,UCH) ({int p_idx; for(p_idx = 0; p_idx < (LEN); ++p_idx) sprintf(&BPACK_zip_info_BUFF[strlen(BPACK_zip_info_BUFF)], "<%#04x>", UCH[p_idx]);})
+#define SPRINTF_HEX(LEN, UCH) ({\
+  int p_idx; char *ptr = &BPACK_zip_info_BUFF[strlen(BPACK_zip_info_BUFF)];\
+  for(p_idx = 0; p_idx < (LEN); ++p_idx) {\
+    sprintf(ptr, "<%#04x>", UCH[p_idx]);\
+    ptr += strlen(ptr);\
+  }\
+})
 #define NEED_TO_UPDATE_ARRS(IDX) (IDX != 0 && IDX % 12 == 0)
 #define ITER_NUM(N,X,Y) ((((N + X) / 2) * 3) - Y)
 #define MULT_8(N) ((N) % 8 == 0)
@@ -72,12 +78,14 @@ void increment_idx_shift_arrs(int *, int [], int []);
 /* STRING EDITING FUNCITONS */
 void modify_str(char *, bool);
 bool is_at_substring(char *, char *);
-/* ANIMATED "SPINNER" & LOADING BAR FUNCTIONS */
+/* ANIMATED "SPINNER", LOADING BAR, & CW-ROW FONT FUNCTIONS */
 void output_load_progress();
 void animate_loading_spinner(bool *, bool *, bool *, bool *);
 void remove_loading_spinner();
 void start_loading_spinner();
 /* NON-BITPACKABLE CHARACTER SUBSTITUTION FUNCTIONS */
+void sub_out_non_bpack_sequence(char *, int, int);
+void sub_in_non_bpack_sequence(char *, char *, int);
 int sub_out_non_bitpackable_chars(char *);
 void sub_back_in_non_bitpackable_chars(char *);
 /* COMMON WORD SUBSTITUTIONS */
@@ -161,14 +169,18 @@ char local_cw_keys[FULL_CW_LEN][6] = { /* FILE-LOCAL COMMON WORD SUBSTITUTIONS *
   "vw", "vz", "wb", "wc", "wj", "wk", "wm", "wp", "wq",
 };
 /* NON BIT-PACKABLE SUBSTITUTED CHARS IN FZ1P COMPRESSION PROCESS */
-#define TOTAL_REPLACEABLE_CHARS 65
-char SUB_VALS[TOTAL_REPLACEABLE_CHARS+1] = "\"#$%&()*+,/0123456789:;<=>@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`{|}~\n\t";
-char SUB_KEYS[TOTAL_REPLACEABLE_CHARS][5] = { 
+#define TOTAL_NON_BPACK_CHARS 65
+char SUB_VALS[TOTAL_NON_BPACK_CHARS+1] = "\"#$%&()*+,/0123456789:;<=>@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`{|}~\n\t";
+char SUB_KEYS[TOTAL_NON_BPACK_CHARS][5] = { 
   "qxa","qxb","qxc","qxd","qxe","qxf","qxg","qxh","qxi","qxj","qxk","qxl","qxm",
   "qxn","qxo","qxp","qxq","qxr","qxs","qxt","qxu","qxv","qxw","qxx","qxy","qxz",
   "qya","qyb","qyc","qyd","qye","qyf","qyg","qyh","qyi","qyj","qyk","qyl","qym",
   "qyn","qyo","qyp","qyq","qyr","qys","qyt","qyu","qyv","qyw","qyx","qyy","qyz",
   "qza","qzb","qzc","qzd","qze","qzf","qzg","qzh","qzi","qzj","qzk","qzl","qzm",
+};
+#define MAX_NON_BPACK_CHAR_SEQ 13
+char SUB_VAL_SEQUENCE_COUNT_KEYS[MAX_NON_BPACK_CHAR_SEQ][10] = { /* 2-14 */
+  "qzn","qzo","qzp","qzq","qzr","qzs","qzt","qzu","qzv","qzw","qzx","qzy","qzz",
 };
 /* GLOBAL VARIABLES */
 unsigned char CW_LEN = FULL_CW_LEN, cw_shift_up_idxs[FULL_CW_LEN]; /* store indices of rmvd cw_keys */
@@ -249,7 +261,7 @@ void SHOW_HANDLER(char *arg1, char *filename) {
   /* END FZ1P.C TIMER */
   timer = clock() - timer;
   double fz1p_time_taken = ((double)timer) / CLOCKS_PER_SEC;
-  if(zip_info) printf("%s%s%s", CWS_zip_info_BUFF, CMPR_zip_info_BUFF, BPACK_zip_info_BUFF);
+  if(zip_info) printf("%s%s%s", BPACK_zip_info_BUFF, CMPR_zip_info_BUFF, CWS_zip_info_BUFF);
   printf("\n%s", EQUALx80);
   printf("\n>> %s ==DECOMPRESS=> %s (TIME: %.2f sec)\n", arg1, filename, fz1p_time_taken);
   printf("%s\n\n", EQUALx80);
@@ -318,8 +330,8 @@ void read_uncompr_text(char s[], char *arg1, int *original_length) {
   char buff[500];
   FLOOD_ZEROS(buff, 500);
   int count = 0, cw_tot, total_non_bitpackable_chars = 0;
-  /* ASCII_ESC codes: green background, black text, bold font (undone once loading bar terminates) */
-  fprintf(stdout, "\n%c[48;5;82m%c[30m%c[1mCOMPRESSION PROGRESS: [=====                                             ]", ASCII_ESC, ASCII_ESC, ASCII_ESC);
+  /* ASCII_ESC codes: reverse background & text colors, bold font (undone once loading bar terminates) */
+  fprintf(stdout, "\n%c[7m%c[1mCOMPRESSION PROGRESS: [=====                                             ]", ASCII_ESC, ASCII_ESC);
   fflush(stdout);
   /* moves cursor 26 character back to start of '=' to continue loading bar */
   fprintf(stdout, "%c[46D", ASCII_ESC); 
@@ -344,8 +356,8 @@ void read_uncompr_text(char s[], char *arg1, int *original_length) {
   float cw_ratio = COMPR_RATIO(strlen(s), *original_length);
   if(zip_info)
     sprintf(CMPR_zip_info_BUFF,
-      "\n%s\n>> Total Non-BitPackable Chars Replaced: %d\n%s\n\n>> Common Words/Phrases Compressed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n%s\n\n", 
-      EQUALx80, total_non_bitpackable_chars, EQUALx80, cw_tot, cw_ratio, s);
+      "\n%s\n%c[1m>> Total Non-BitPackable Chars Replaced: %d%c[0m\n%s\n\n%c[1m>> %c[4mCommon Words/Phrases Compressed (SAVED BYTES: %d - COMPR RATE: %.2f%%)%c[0m%c[1m:%c[0m\n%s\n\n", 
+      EQUALx80, ASCII_ESC, total_non_bitpackable_chars, ASCII_ESC, EQUALx80, ASCII_ESC,ASCII_ESC, cw_tot, cw_ratio, ASCII_ESC,ASCII_ESC,ASCII_ESC, s);
 }
 void write_compr_text(char filename[], int PASSED_STR_TOTAL, unsigned char packed_uch[]) {
   unsigned int write_size = (unsigned int)PASSED_STR_TOTAL;
@@ -362,8 +374,9 @@ void write_compr_text(char filename[], int PASSED_STR_TOTAL, unsigned char packe
   int pack_tot = PASSED_STR_TOTAL - PACKED_UCH_TOTAL;
   float pack_ratio = COMPR_RATIO(PACKED_UCH_TOTAL, PASSED_STR_TOTAL);
   if(zip_info) {
-    sprintf(BPACK_zip_info_BUFF, "\n>> Bit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%):\n", pack_tot, pack_ratio);
-    PRINT_HEX(PACKED_UCH_TOTAL,packed_uch);
+    sprintf(BPACK_zip_info_BUFF, "\n%c[1m>> %c[4mBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%)%c[0m%c[1m:%c[0m\n",
+      ASCII_ESC, ASCII_ESC, pack_tot, pack_ratio, ASCII_ESC, ASCII_ESC, ASCII_ESC);
+    SPRINTF_HEX(PACKED_UCH_TOTAL,packed_uch);
     sprintf(&BPACK_zip_info_BUFF[strlen(BPACK_zip_info_BUFF)], "\n");
   }
 }
@@ -373,7 +386,7 @@ void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL,
   init_decompr_arr(unpacked_str); /* init unpacked_str with 0's to clear garbage memory for bitpacking */
   init_compr_arr(unpacked_uch); /* init 0's to clear garbage memory */
   FILE *fp;
-  fprintf(stdout, "\n%c[48;5;82m%c[30m%c[1mDECOMPRESSION PROGRESS: [=====                                             ]", ASCII_ESC, ASCII_ESC, ASCII_ESC);
+  fprintf(stdout, "\n%c[7m%c[1mDECOMPRESSION PROGRESS: [=====                                             ]", ASCII_ESC, ASCII_ESC);
   fflush(stdout);
   /* moves cursor 26 character back to start of '=' to continue loading bar */
   fprintf(stdout, "%c[46D", ASCII_ESC); 
@@ -394,9 +407,9 @@ void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL,
   show_adjust_cw_keys(cw_read_length);
   output_load_progress();
   if(zip_info) { 
-    sprintf(BPACK_zip_info_BUFF, "\n>> Bit-Packed:\n"); 
-    PRINT_HEX(read_char_total, packed_uch); 
-    sprintf(&BPACK_zip_info_BUFF[strlen(BPACK_zip_info_BUFF)], "\n"); 
+    sprintf(BPACK_zip_info_BUFF, "\n%c[1m>> %c[4mBit-Packed%c[0m%c[1m:%c[0m\n", ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC); 
+    SPRINTF_HEX(read_char_total, packed_uch); 
+    sprintf(&BPACK_zip_info_BUFF[strlen(BPACK_zip_info_BUFF)], "\n\n");
   }
 }
 void delete_original_file_option(char *arg1) {
@@ -437,7 +450,8 @@ void unpack_dehash_handler(int PASSED_STR_TOTAL, char unpacked_str[], unsigned c
   output_load_progress();
   dehash_show(PASSED_STR_TOTAL, unpacked_str, unpacked_uch);
   output_load_progress();
-  if(zip_info) sprintf(CMPR_zip_info_BUFF, "\n\n>> Common Words/Phrases Compressed:\n%s\n", unpacked_str);
+  if(zip_info) sprintf(CMPR_zip_info_BUFF, "\n%c[1m>> %c[4mCommon Words/Phrases Compressed%c[0m%c[1m:%c[0m\n%s\n", 
+      ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, unpacked_str);
   modify_str(unpacked_str, false); /* revert unpacked_str back to pre-compression format */
   output_load_progress();
   sub_back_in_non_bitpackable_chars(unpacked_str); /* resubstitute in non-bitpackable chars to file */
@@ -508,13 +522,11 @@ void modify_str(char *s, bool hide_flag) {
   }
 }
 bool is_at_substring(char *p, char *substr) {
-  if(strlen(substr) > strlen(p)) return false;
-  int i = 0, len = strlen(substr);
-  for(; i < len; ++i) if(p[i] != substr[i]) return false;
-  return true;
+  while(*substr != '\0' && *p != '\0' && *p == *substr) ++p, ++substr;
+  return (*substr == '\0');
 }
 /******************************************************************************
-* ANIMATED "SPINNER" & LOADING BAR FUNCTIONS
+* ANIMATED "SPINNER", LOADING BAR, & CW-ROW FONT FUNCTIONS
 ******************************************************************************/
 void output_load_progress() {
   fprintf(stdout, "=====");
@@ -551,21 +563,51 @@ void start_loading_spinner() {
 /******************************************************************************
 * NON-BITPACKABLE CHARACTER SUBSTITUTION FUNCTIONS
 ******************************************************************************/
+void sub_out_non_bpack_sequence(char *q, int val_key_index, int sequence_count) { 
+  if(sequence_count < 2) { strcpy(q, SUB_KEYS[val_key_index]); return; }
+  const int total_max_length_sequences = sequence_count / 14; /* how many length 14 sequence keys to put */
+  const int total_remaining_sequences = sequence_count % 14; /* remainder of sequence that's left under length 14 */
+  const int SUB_VAL_SEQ_COUNT_IDX = total_remaining_sequences - 2;
+  const int MAX_SEQ_COUNT_IDX = MAX_NON_BPACK_CHAR_SEQ - 1;
+  int i;
+  for(i = 0; i < total_max_length_sequences; ++i) { /* add the needed number of sequence replacements */
+    sprintf(q, "%s%c%c", SUB_VAL_SEQUENCE_COUNT_KEYS[MAX_SEQ_COUNT_IDX], SUB_KEYS[val_key_index][1], SUB_KEYS[val_key_index][2]);
+    q += strlen(q);
+  }
+  if(total_remaining_sequences == 1)
+    strcpy(q, SUB_KEYS[val_key_index]);
+  else if(total_remaining_sequences > 1)
+    sprintf(q, "%s%c%c", SUB_VAL_SEQUENCE_COUNT_KEYS[SUB_VAL_SEQ_COUNT_IDX], SUB_KEYS[val_key_index][1], SUB_KEYS[val_key_index][2]);
+}
+void sub_in_non_bpack_sequence(char *q, char *str, int seq_count_key_index) { 
+  const int nonbpack_char_sequence_length = seq_count_key_index + 2;
+  char sub_key[5];
+  FLOOD_ZEROS(sub_key, 5);
+  sprintf(sub_key, "q%c%c", *(str + 3), *(str + 4));
+  int val_key_index = 0, i;
+  while(val_key_index < TOTAL_NON_BPACK_CHARS && !is_at_substring(sub_key, SUB_KEYS[val_key_index]))
+    ++val_key_index;
+  for(i = 0; i < nonbpack_char_sequence_length; ++i)
+    *q++ = SUB_VALS[val_key_index];
+}
 int sub_out_non_bitpackable_chars(char *str) { /* Replace non-bitpackable chars with substitute keys */
   char buf[MAX_CH];
   FLOOD_ZEROS(buf, MAX_CH);
-  char *p = str, *q = buf;
-  int i = 0, total_non_bitpackable_chars = 0;
+  char *p = str, *q = buf, *scout;
+  int i = 0, total_non_bitpackable_chars = 0, non_bpack_char_seq_length;
   while(*p != '\0') {                             /* traverse through string */
-    for(i = 0; i < TOTAL_REPLACEABLE_CHARS; ++i)  /* search for replaceable characters */
+    for(i = 0; i < TOTAL_NON_BPACK_CHARS; ++i)  /* search for non bitpackable characters */
       if(*p == SUB_VALS[i]) {
-        strcpy(q, SUB_KEYS[i]);                   /* copy in substitute */
+        scout = p + 1;
+        non_bpack_char_seq_length = 1;
+        while(*scout != '\0' && *scout == SUB_VALS[i]) ++scout, ++non_bpack_char_seq_length;
+        sub_out_non_bpack_sequence(q, i, non_bpack_char_seq_length); /* copy in substitute */
         q += strlen(q);
-        ++p;
-        ++total_non_bitpackable_chars;            /* for "-l" flag */
+        p += non_bpack_char_seq_length;
+        total_non_bitpackable_chars += non_bpack_char_seq_length; /* for "-l" flag */
         break;
       }
-    if(i == TOTAL_REPLACEABLE_CHARS) *q++ = *p++; /* not at replaceable char, thus copy */
+    if(i == TOTAL_NON_BPACK_CHARS) *q++ = *p++; /* not at non bitpackable char, thus copy */
   }
   *q = '\0';
   FLOOD_ZEROS(str, MAX_CH);
@@ -576,18 +618,27 @@ void sub_back_in_non_bitpackable_chars(char *str) { /* Resub non-bitpackable cha
   char buf[MAX_CH];
   FLOOD_ZEROS(buf, MAX_CH);
   char *p = str, *q = buf;
-  int i = 0;
+  int i = 0, j = 0;
   bool upflag = true, upleftflag = false, sideflag = false, downrightflag = false;
   start_loading_spinner();
   while(*p != '\0') {                             /* traverse through string */
     animate_loading_spinner(&upflag, &upleftflag, &sideflag, &downrightflag);
-    for(i = 0; i < TOTAL_REPLACEABLE_CHARS; ++i)  /* search for replaceable characters */
+    for(j = 0; j < MAX_NON_BPACK_CHAR_SEQ; ++j) {
+      if(is_at_substring(p, SUB_VAL_SEQUENCE_COUNT_KEYS[j])) {
+        sub_in_non_bpack_sequence(q, p, j);
+        q += strlen(q);
+        p += 5; /* length of "SUB_VAL_SEQUENCE_COUNT_KEYS[j]" + the sequence's 2 tailing "key_type" indicators */
+        break;
+      }
+    }
+    for(i = 0; i < TOTAL_NON_BPACK_CHARS; ++i)  /* search for non bitpackable characters */
       if(is_at_substring(p, SUB_KEYS[i])) {
-        *q++ = SUB_VALS[i];                       /* re-substitute in replaceable char */
+        *q++ = SUB_VALS[i];                       /* re-substitute in non bitpackable char */
         p += strlen(SUB_KEYS[i]);
         break;
       }
-    if(i == TOTAL_REPLACEABLE_CHARS) *q++ = *p++; /* not at replaceable char, thus copy */
+    if(i == TOTAL_NON_BPACK_CHARS && j == MAX_NON_BPACK_CHAR_SEQ) 
+      *q++ = *p++; /* not at non bitpackable char, thus copy */
   }
   *q = '\0';
   FLOOD_ZEROS(str, MAX_CH);
@@ -612,8 +663,11 @@ int remove_duplicate_cw_idxs(int idxs_of_found_cw[], int found_cw_count, int ori
 }
 void delta_sub_common_words(char *s, char remove[][50], char insert[][50], bool hide_flag) {
   int word_len, i, j, condition;
-  int idxs_of_found_cw[MAX_CH], found_cw_count = 0; /* for "-l" flag */
+  int idxs_of_found_cw[MAX_CH], found_cw_count = 0, total_cw_instances; /* for "-l" flag */
+  int cw_frequency_hash_table[FULL_CW_LEN]; /* for "-l" flag */
+  char *p;
   FLOOD_ZEROS(idxs_of_found_cw, MAX_CH);
+  FLOOD_ZEROS(cw_frequency_hash_table, FULL_CW_LEN);
   (hide_flag) ? (i = 0) : (i = CW_LEN - 1); /* traverse the cw matrix forwards on hide & backwards on show */
   bool upflag = true, upleftflag = false, sideflag = false, downrightflag = false;
   start_loading_spinner();
@@ -621,13 +675,16 @@ void delta_sub_common_words(char *s, char remove[][50], char insert[][50], bool 
     animate_loading_spinner(&upflag, &upleftflag, &sideflag, &downrightflag);
     (hide_flag) ? (condition = (i < CW_LEN)) : (condition = (i >= 0));
     if(!condition) break;
-    char *p = s;
+    p = s;
     word_len = strlen(remove[i]);
     while(*p != '\0') {
       if(*p == remove[i][0]) {
         for(j = 0; j < word_len; ++j) if(*(p + j) != remove[i][j]) break;
         if(j == word_len) {
-          if(zip_info) idxs_of_found_cw[found_cw_count++] = i; /* for "-l" flag */
+          if(zip_info) {  /* for "-l" flag */
+            idxs_of_found_cw[found_cw_count++] = i;
+            ++ cw_frequency_hash_table[i];
+          }
           splice_str(p, insert[i], word_len); /* if word in s is common word */
         }
       } else if(IS_PUNC(*p)) { ++p; } /* avoid chaining word subs */
@@ -636,14 +693,24 @@ void delta_sub_common_words(char *s, char remove[][50], char insert[][50], bool 
     (hide_flag) ? (++i) : (--i);
   }
   if(zip_info) { /* if "-l" output replaced common words */
+    total_cw_instances = found_cw_count;
     found_cw_count = remove_duplicate_cw_idxs(idxs_of_found_cw, found_cw_count, MAX_CH);
-    sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "\n%s\nCOMMON WORDS FOUND & REPLACED (%d TOTAL):\n\n", EQUALx80, found_cw_count);
+    p = &CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)];
+    sprintf(p, "\n%s\n%c[1m%c[4mCOMMON WORDS FOUND & REPLACED (%d INSTANCES)%c[0m%c[1m:%c[0m\n", 
+      EQUALx80, ASCII_ESC, ASCII_ESC, total_cw_instances, ASCII_ESC, ASCII_ESC, ASCII_ESC);
+    p += strlen(p);
+    char col1[6], col2[6];
+    if(hide_flag) strcpy(col1, "INSRT"), strcpy(col2, "RMVD");
+    else          strcpy(col1, "RMVD"), strcpy(col2, "INSRT");
+    sprintf(p, "\t%c[1m%c[4mFREQ%c[0m\t%c[1m%c[4m%s%c[0m\t%c[1m%c[4m%s%c[0m\n", 
+      ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, col1, ASCII_ESC, ASCII_ESC, ASCII_ESC, col2, ASCII_ESC);
+    p += strlen(p);
     for(i = 0; i < found_cw_count; ++i) {
-      if(strlen(remove[idxs_of_found_cw[i]]) < 8)
-         sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t\t", i + 1, remove[idxs_of_found_cw[i]]);
+      if(hide_flag)
+         sprintf(p, "%02d)\tx%02d\t%s\t%s\n", i+1, cw_frequency_hash_table[idxs_of_found_cw[i]], insert[idxs_of_found_cw[i]], remove[idxs_of_found_cw[i]]);
        else
-        sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t", i + 1, remove[idxs_of_found_cw[i]]);
-      sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%s\n", insert[idxs_of_found_cw[i]]);
+        sprintf(p, "%02d)\tx%02d\t%s\t%s\n", i+1, cw_frequency_hash_table[idxs_of_found_cw[i]], remove[idxs_of_found_cw[i]], insert[idxs_of_found_cw[i]]);
+      p += strlen(p);
     }
   }
   remove_loading_spinner();
@@ -697,10 +764,12 @@ void show_handle_local_cws(char s[]) {
 }
 void delta_sub_local_common_words(char s[], bool hide_flag) {
   int word_len, i, j;
-  int idxs_of_found_cw[MAX_CH/2], found_cw_count = 0; /* for "-l" flag */
+  int idxs_of_found_cw[MAX_CH/2], found_cw_count = 0, total_cw_instances; /* for "-l" flag */
+  int cw_frequency_hash_table[FULL_CW_LEN]; /* for "-l" flag */
   bool upflag = true, upleftflag = false, sideflag = false, downrightflag = false;
   start_loading_spinner();
   FLOOD_ZEROS(idxs_of_found_cw, MAX_CH/2);
+  FLOOD_ZEROS(cw_frequency_hash_table, FULL_CW_LEN);
   char *p, rmv[75], add[75];
   for(i = 0; i < lcwIdx; ++i) {
     p = s;
@@ -714,7 +783,10 @@ void delta_sub_local_common_words(char s[], bool hide_flag) {
       if(*p == '_' && lcw_end(*(p+word_len+1),*(p+word_len+2)) && *(p + 1) == rmv[0]) {
         ++p; for(j = 0; j < word_len; ++j) if(*(p + j) != rmv[j]) break;
         if(j == word_len) {
-          if(zip_info) idxs_of_found_cw[found_cw_count++] = i; /* for "-l" flag */
+          if(zip_info) { /* for "-l" flag */
+            idxs_of_found_cw[found_cw_count++] = i; 
+            ++ cw_frequency_hash_table[i];
+          }
           splice_str(p, add, word_len); /* if word in s is local common word */
         }
       }
@@ -722,22 +794,21 @@ void delta_sub_local_common_words(char s[], bool hide_flag) {
     }
   }
   if(zip_info) { /* if "-l" output replaced common words */
+    total_cw_instances = found_cw_count;
     found_cw_count = remove_duplicate_cw_idxs(idxs_of_found_cw, found_cw_count, MAX_CH/2);
-    sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "\n%s\nLOCAL COMMON WORDS FOUND & REPLACED (%d TOTAL):\n\n", EQUALx80, found_cw_count);
+    p = &CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)];
+    sprintf(p, "\n%s\n%c[1m%c[4mLOCAL COMMON WORDS FOUND & REPLACED (%d INSTANCES)%c[0m%c[1m:%c[0m\n", 
+      EQUALx80, ASCII_ESC, ASCII_ESC, total_cw_instances, ASCII_ESC, ASCII_ESC, ASCII_ESC);
+    p += strlen(p);
+    char col1[6], col2[6];
+    if(hide_flag) strcpy(col1, "INSRT"), strcpy(col2, "RMVD");
+    else          strcpy(col1, "RMVD"), strcpy(col2, "INSRT");
+    sprintf(p, "\t%c[1m%c[4mFREQ%c[0m\t%c[1m%c[4m%s%c[0m\t%c[1m%c[4m%s%c[0m\n", 
+      ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, col1, ASCII_ESC, ASCII_ESC, ASCII_ESC, col2, ASCII_ESC);
+    p += strlen(p);
     for(i = 0; i < found_cw_count; ++i) {
-      if(hide_flag) {
-        if(strlen(local_cws[idxs_of_found_cw[i]].cw) < 8)
-           sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t\t", i + 1, local_cws[idxs_of_found_cw[i]].cw);
-         else 
-          sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t", i + 1, local_cws[idxs_of_found_cw[i]].cw);
-        sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%s\n", local_cws[idxs_of_found_cw[i]].sub);
-      } else {
-        if(strlen(local_cws[idxs_of_found_cw[i]].sub) < 8)
-           sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t\t", i + 1, local_cws[idxs_of_found_cw[i]].sub);
-         else 
-          sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%02d)\t%s\t", i + 1, local_cws[idxs_of_found_cw[i]].sub);
-        sprintf(&CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], "%s\n", local_cws[idxs_of_found_cw[i]].cw);
-      }
+      sprintf(p, "%02d)\tx%02d\t%s\t%s\n",i+1,cw_frequency_hash_table[idxs_of_found_cw[i]],local_cws[idxs_of_found_cw[i]].sub,local_cws[idxs_of_found_cw[i]].cw);
+      p += strlen(p);
     }
   }
   remove_loading_spinner();
@@ -793,5 +864,5 @@ void shift_up_cw_keys(int idx) {
 }
 void modify_key(char *modded_key, char *key) {
   strcpy(modded_key, key);
-  int i; for(i = 0; i < strlen(key); ++i) if(key[i] == '_') modded_key[i] = ' ';
+  int i, len = strlen(key); for(i = 0; i < len; ++i) if(key[i] == '_') modded_key[i] = ' ';
 }
