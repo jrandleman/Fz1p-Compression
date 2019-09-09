@@ -16,16 +16,17 @@
 |:---------------:|:-------------:|:---------------:|
 |       50%       |      TXT      |       BIN       |
 
-## Compression Technique:
-1. Replaces Chars of the Following String w/ Keys Generated Using the "Reserved Char Sequences":
-   * Thus Spaces, the Lowercase Alphabet, and `.,!?-` are the Only Printable Chars Left in the File
+## Compression Technique (Decompression in Reverse):
+1. Replace Chars of the Following String w/ Keys Generated Using the "Reserved Char Sequences":
+   * Thus Spaces, the Lowercase Alphabet, and `.!?` are the Only Printable Chars Left in the File
  ```c
- "\"#$%&()*+,/0123456789:;<=>@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`{|}~\n\t"
+ "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-\'\",/:;<=>#$%&()*+@[\\]^_`{|}~\n\t"
  ```
-2. All Spaces are Converted to Underscores
-3. Abbreviates Commonly Repeated Substrings Found in the File
-4. W/ Only 32 Different Printable Characters Left (Step 1), Each are Bit-Packed Into 5 Bits Rather Than 8
-5. ***Mind = Blown***
+2. Replace the 2 Most Common "Reserved Char Sequences" w/ '`-`' and '`'`'
+3. Convert Spaces to Underscores
+4. Abbreviate Commonly Repeated Substrings Found in the File
+5. W/ Only 32 Different Printable Characters Left (Steps 1-3), Bit-Pack Each Into 5 Bits Rather Than 8
+6. ***Mind = Blown***
 ---------------------------------------
 ## 3 Reserved Character Sequences for Compression:
 * "`qx`", "`qy`", _&_ "`qz`" _are **NOT** to be used in any_ `.txt` _being compressed (lower **or** uppercase!)_
