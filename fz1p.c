@@ -14,6 +14,11 @@
  * (1) "qx"
  * (2) "qy"
  * (3) "qz"
+ *
+ * STYLED TERMINAL SYNTAX SOURCES:
+ * (1) GENERAL ESCAPE CODES: http://www.climagic.org/mirrors/VT100_Escape_Codes.html
+ * (2) TEXT-SPECIFIC (COLORS, BOLD, ETC): http://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html
+ *     => NOTE: for source (2) use '\033' wherever they use '\u001b' (in C, '\u' universal chars cannot be used to repn. single chars in the basic char set).
  */
 #include <stdlib.h>
 #include <string.h>
@@ -21,8 +26,12 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <time.h>
-#define MAX_CH 1000000
-#define COMPR_MEM(UCH_TOT) (6 + (FULL_CW_LEN - CW_LEN) + (UCH_TOT)) /* lcw l + key l & arr + uncompr l + compr arr */
+#define MAX_CH 1000000 /* 1 gigabyte = max filesize */
+#define MAX_PREFIX1_KEY '-' /* replaces the most common reserved 'q'-prefix */
+#define MAX_PREFIX2_KEY '\'' /* replaces 2nd most common reserved 'q'-prefix */
+#define MAX_UNSIGNED_8_BIT_VAL 255
+#define MAX_UNSIGNED_5_BIT_VAL 31
+#define COMPR_MEM(UCH_TOT) (8 + (FULL_CW_LEN - CW_LEN) + (UCH_TOT)) /* max_prefix1 + max_prefix2 + lcw l + key l & arr + uncompr l + compr arr */
 #define SAVED_CW_MEM(FREQ, OLD, NEW) ((FREQ) * (strlen(OLD) - strlen(NEW)))
 #define COMPR_RATIO(NEW,OLD) (100*(1.000000 - (((float)NEW)/((float)OLD))))
 #define FLOOD_ZEROS(arr, len) ({int arr_i = 0;for(; arr_i < len; ++arr_i) arr[arr_i] = 0;})
@@ -53,7 +62,6 @@
 #define local_cw_worth_sub(S,F) ((strlen((S))==3) ? ((F)>4) : (strlen((S))==4||strlen((S))==5) ? ((F)>2) : ((strlen((S))>5) && ((F)>1)))
 #define lcw_end(CH1,CH2) ((CH1) == '_' || ((IS_PUNC((CH1)) || (CH1) == '-') && ((CH2) == '_' || ((CH2) == '\0'))))
 #define EQUALx80 "================================================================================"
-#define ASCII_ESC 27
 /* MAIN HIDE / SHOW HANDLERS */
 void HIDE_HANDLER(char *, char *);
 void SHOW_HANDLER(char *, char *);
@@ -82,12 +90,14 @@ void increment_idx_shift_arrs(int *, int [], int []);
 /* STRING EDITING FUNCITONS */
 void modify_str(char *, bool);
 bool is_at_substring(char *, char *);
-/* ANIMATED "SPINNER", LOADING BAR, & CW-ROW FONT FUNCTIONS */
+/* ANIMATED "SPINNER" & LOADING BAR FUNCTIONS */
 void output_load_progress();
 void animate_loading_spinner(bool *, bool *, bool *, bool *);
 void remove_loading_spinner();
 void start_loading_spinner();
 /* NON-BITPACKABLE CHARACTER SUBSTITUTION FUNCTIONS */
+void sub_out_2_most_common_q_prefixes(char *);
+void sub_in_2_most_common_q_prefixes(char *);
 void sub_out_non_bpack_sequence(char *, int, int);
 void sub_in_non_bpack_sequence(char *, char *, int);
 int sub_out_non_bitpackable_chars(char *);
@@ -106,7 +116,7 @@ void fill_local_word(char[], char *, int);
 void keep_local_word(int);
 void handle_capped_lcwIdx();
 typedef struct cws {
-  char cw[75], sub[75]; 
+  char cw[150], sub[150]; 
   int freq, mem_saved;
 } CWS;
 CWS all_local_cws[(MAX_CH/2)], local_cws[(MAX_CH/2)];
@@ -174,29 +184,31 @@ char local_cw_keys[FULL_CW_LEN][6] = { /* FILE-LOCAL COMMON WORD SUBSTITUTIONS *
   "vw", "vz", "wb", "wc", "wj", "wk", "wm", "wp", "wq",
 };
 /* NON BIT-PACKABLE SUBSTITUTED CHARS IN FZ1P COMPRESSION PROCESS */
-#define TOTAL_NON_BPACK_CHARS 65
-char SUB_VALS[TOTAL_NON_BPACK_CHARS+1] = "\"#$%&()*+,/0123456789:;<=>@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`{|}~\n\t";
+#define TOTAL_NON_BPACK_CHARS 67
+char SUB_VALS[TOTAL_NON_BPACK_CHARS+1] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-\'\",/:;<=>#$%&()*+@[\\]^_`{|}~\n\t";
 char SUB_KEYS[TOTAL_NON_BPACK_CHARS][5] = { 
   "qxa","qxb","qxc","qxd","qxe","qxf","qxg","qxh","qxi","qxj","qxk","qxl","qxm",
   "qxn","qxo","qxp","qxq","qxr","qxs","qxt","qxu","qxv","qxw","qxx","qxy","qxz",
   "qya","qyb","qyc","qyd","qye","qyf","qyg","qyh","qyi","qyj","qyk","qyl","qym",
   "qyn","qyo","qyp","qyq","qyr","qys","qyt","qyu","qyv","qyw","qyx","qyy","qyz",
   "qza","qzb","qzc","qzd","qze","qzf","qzg","qzh","qzi","qzj","qzk","qzl","qzm",
+  "qzn","qzo",
 };
-#define MAX_NON_BPACK_CHAR_SEQ 12
-char SUB_VAL_SEQUENCE_COUNT_KEYS[MAX_NON_BPACK_CHAR_SEQ][10] = { /* 2-13 */
-  "qzn","qzo","qzp","qzq","qzr","qzs","qzt","qzu","qzv","qzw","qzx","qzy",
+#define MAX_NON_BPACK_CHAR_SEQ 10
+char SUB_VAL_SEQUENCE_COUNT_KEYS[MAX_NON_BPACK_CHAR_SEQ][10] = { /* 2-11 */
+  "qzp","qzq","qzr","qzs","qzt","qzu","qzv","qzw","qzx","qzy",
 };
 /* GLOBAL VARIABLES */
 unsigned char CW_LEN = FULL_CW_LEN, cw_shift_up_idxs[FULL_CW_LEN]; /* store indices of rmvd cw_keys */
 char CMPR_zip_info_BUFF[MAX_CH], BPACK_zip_info_BUFF[MAX_CH], CWS_zip_info_BUFF[MAX_CH]; /* store data to ouput at end if "-l" present */
+char max_prefix1, max_prefix2; /* store which 2 of the most common reserved 'q'-prefixes were swapped out w/ '-' * '\'' */
 int lcwIdx = 0; /* output compresion/decompresion progress */
 bool zip_info = false;
 int main(int argc, char *argv[]) {
   if(argc < 2 || argc > 3) err_info();
-  char filename[75], arg1[75];
-  FLOOD_ZEROS(filename, 75); 
-  FLOOD_ZEROS(arg1, 75); 
+  char filename[150], arg1[150];
+  FLOOD_ZEROS(filename, 150); 
+  FLOOD_ZEROS(arg1, 150); 
   FLOOD_ZEROS(CWS_zip_info_BUFF, MAX_CH); 
   FLOOD_ZEROS(CMPR_zip_info_BUFF, MAX_CH); 
   FLOOD_ZEROS(BPACK_zip_info_BUFF, MAX_CH); 
@@ -234,8 +246,8 @@ void HIDE_HANDLER(char arg1[], char *filename) {
   /* WRITE PACKED HASHED TEXT TO FILE */
   int compr_bytes = COMPR_MEM(SHIFT_CHAR_TOTAL(PASSED_STR_TOTAL));
   write_compr_text(filename, PASSED_STR_TOTAL, packed_uch);
-  /* ASCII_ESC code removes terminal styles once loading bar complete */
-  fprintf(stdout, "=====]%c[0m\n", ASCII_ESC);
+  /* '\033' ASCII ESCAPE code removes terminal styles once loading bar complete */
+  fprintf(stdout, "=====]\033[0m\n");
   fflush(stdout);
   /* OUPUT COMPRESSION RESULTS */
   float total_saved_bytes_ratio = COMPR_RATIO(compr_bytes, original_length); 
@@ -335,11 +347,11 @@ void read_uncompr_text(char s[], char *arg1, int *original_length) {
   char buff[500];
   FLOOD_ZEROS(buff, 500);
   int count = 0, cw_tot, total_non_bitpackable_chars = 0;
-  /* ASCII_ESC codes: reverse background & text colors, bold font (undone once loading bar terminates) */
-  fprintf(stdout, "\n%c[7m%c[1mCOMPRESSION PROGRESS: [=====                                             ]", ASCII_ESC, ASCII_ESC);
+  /* '\033' ASCII ESCAPE codes: reverse background & text colors, bold font (undone once loading bar terminates) */
+  fprintf(stdout, "\n\033[7m\033[1mCOMPRESSION PROGRESS: [=====                                             ]");
   fflush(stdout);
   /* moves cursor 26 character back to start of '=' to continue loading bar */
-  fprintf(stdout, "%c[46D", ASCII_ESC); 
+  fprintf(stdout, "\033[46D"); 
   fflush(stdout);
   /* read file */
   while(fgets(buff, 500, fp) != NULL) { 
@@ -352,6 +364,7 @@ void read_uncompr_text(char s[], char *arg1, int *original_length) {
   check_for_reserved_qx_qy_qz_char_sequences(s); /* confirm file contains no "qx", "qy", or "qz" reserved char sequences */
   output_load_progress();
   total_non_bitpackable_chars = sub_out_non_bitpackable_chars(s); /* substitute out non-bitpackable chars */
+  sub_out_2_most_common_q_prefixes(s); /* substitute out 2 most common reserved 'q'-prefixes w/ '-' & '\'' */
   output_load_progress();
   hide_adjust_cw_keys(s);
   output_load_progress();
@@ -359,10 +372,11 @@ void read_uncompr_text(char s[], char *arg1, int *original_length) {
   output_load_progress();
   cw_tot = *original_length - strlen(s);
   float cw_ratio = COMPR_RATIO(strlen(s), *original_length);
-  if(zip_info)
-    sprintf(CMPR_zip_info_BUFF,
-      "\n%s\n%c[1m>> Total Non-BitPackable Chars Replaced: %d%c[0m\n%s\n\n%c[1m>> %c[4mCommon Words/Phrases Compressed (SAVED BYTES: %d - COMPR RATE: %.2f%%)%c[0m%c[1m:%c[0m\n%s\n\n", 
-      EQUALx80, ASCII_ESC, total_non_bitpackable_chars, ASCII_ESC, EQUALx80, ASCII_ESC,ASCII_ESC, cw_tot, cw_ratio, ASCII_ESC,ASCII_ESC,ASCII_ESC, s);
+  if(zip_info) {
+    sprintf(CMPR_zip_info_BUFF, "\n%s\n\033[1m>> Total Non-BitPackable Chars Replaced: %d\033[0m\n%s\n\n", EQUALx80, total_non_bitpackable_chars, EQUALx80);
+    sprintf(&CMPR_zip_info_BUFF[strlen(CMPR_zip_info_BUFF)], 
+      "\033[1m>> \033[4mCommon Words/Phrases Compressed (SAVED BYTES: %d - COMPR RATE: %.2f%%)\033[0m\033[1m:\033[0m\n%s\n\n", cw_tot, cw_ratio, s);
+  }
 }
 void write_compr_text(char filename[], int PASSED_STR_TOTAL, unsigned char packed_uch[]) {
   unsigned int write_size = (unsigned int)PASSED_STR_TOTAL;
@@ -370,6 +384,8 @@ void write_compr_text(char filename[], int PASSED_STR_TOTAL, unsigned char packe
   int PACKED_UCH_TOTAL = SHIFT_CHAR_TOTAL(PASSED_STR_TOTAL);
   FILE *fp;
   myAssert((fp = fopen(filename, "wb")), "\n\n(!!!) ERROR WRITING COMPRESSED TEXE TO BINARY FILE (!!!)\n\n");
+  fwrite(&max_prefix1, sizeof(char), 1, fp); /* write 1st most common reserved 'q' prefix (subbed w/ '-') */
+  fwrite(&max_prefix2, sizeof(char), 1, fp); /* write 2nd most common reserved 'q' prefix (subbed w/ '\'') */
   fwrite(&lcw_length, sizeof(unsigned char), 1, fp); /* write local common words length */
   fwrite(&cw_write_length, sizeof(unsigned char), 1, fp); /* write modified cw_keys idxs length */
   fwrite(cw_shift_up_idxs, sizeof(unsigned char), cw_write_length, fp); /* write modified cw_keys idxs array */
@@ -379,8 +395,7 @@ void write_compr_text(char filename[], int PASSED_STR_TOTAL, unsigned char packe
   int pack_tot = PASSED_STR_TOTAL - PACKED_UCH_TOTAL;
   float pack_ratio = COMPR_RATIO(PACKED_UCH_TOTAL, PASSED_STR_TOTAL);
   if(zip_info) {
-    sprintf(BPACK_zip_info_BUFF, "\n%c[1m>> %c[4mBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%)%c[0m%c[1m:%c[0m\n",
-      ASCII_ESC, ASCII_ESC, pack_tot, pack_ratio, ASCII_ESC, ASCII_ESC, ASCII_ESC);
+    sprintf(BPACK_zip_info_BUFF, "\n\033[1m>> \033[4mBit-Packed (SAVED BYTES: %d - COMPR RATE: %.2f%%)\033[0m\033[1m:\033[0m\n", pack_tot, pack_ratio);
     SPRINTF_HEX(PACKED_UCH_TOTAL,packed_uch);
     sprintf(&BPACK_zip_info_BUFF[strlen(BPACK_zip_info_BUFF)], "\n");
   }
@@ -391,13 +406,15 @@ void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL,
   init_decompr_arr(unpacked_str); /* init unpacked_str with 0's to clear garbage memory for bitpacking */
   init_compr_arr(unpacked_uch); /* init 0's to clear garbage memory */
   FILE *fp;
-  fprintf(stdout, "\n%c[7m%c[1mDECOMPRESSION PROGRESS: [=====                                             ]", ASCII_ESC, ASCII_ESC);
+  fprintf(stdout, "\n\033[7m\033[1mDECOMPRESSION PROGRESS: [=====                                             ]");
   fflush(stdout);
   /* moves cursor 26 character back to start of '=' to continue loading bar */
-  fprintf(stdout, "%c[46D", ASCII_ESC); 
+  fprintf(stdout, "\033[46D"); 
   fflush(stdout);
   /* read file */
   myAssert((fp = fopen(filename, "rb")), "\n\n(!!!) ERROR READING COMPRESSED TEXT FROM BINARY FILE (!!!)\n\n");
+  fread(&max_prefix1, sizeof(char), 1, fp); /* read 1st most common reserved 'q' prefix (subbed w/ '-') */
+  fread(&max_prefix2, sizeof(char), 1, fp); /* read 2nd most common reserved 'q' prefix (subbed w/ '\'') */
   fread(&lcw_length, sizeof(unsigned char), 1, fp); /* read local common words length */
   lcwIdx = (int)lcw_length;
   fread(&cw_read_length, sizeof(unsigned char), 1, fp); /* read modified cw_keys idxs length */
@@ -412,7 +429,7 @@ void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL,
   show_adjust_cw_keys(cw_read_length);
   output_load_progress();
   if(zip_info) { 
-    sprintf(BPACK_zip_info_BUFF, "\n%c[1m>> %c[4mBit-Packed%c[0m%c[1m:%c[0m\n", ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC); 
+    sprintf(BPACK_zip_info_BUFF, "\n\033[1m>> \033[4mBit-Packed\033[0m\033[1m:\033[0m\n");
     SPRINTF_HEX(read_char_total, packed_uch); 
     sprintf(&BPACK_zip_info_BUFF[strlen(BPACK_zip_info_BUFF)], "\n\n");
   }
@@ -440,8 +457,8 @@ void hash_pack_handler(int PASSED_STR_TOTAL, char passed_str[], unsigned char pa
   hash_hide(PASSED_STR_TOTAL, passed_str, passed_uch);
   for(i = 0, j = 0; i < pack_shift_iterations; ++i, ++j) { /* BIT-PACK TEXT */
     if(NEED_TO_UPDATE_ARRS(i)) increment_idx_shift_arrs(&j, pack_ch_idx, unpack_uch_idx); /* UPDATE CHAR ACCESS IDXS */
-    if(shift_left[j] == 1) { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] << bit_shift_nums[j]) & 255); }
-    else { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] >> bit_shift_nums[j]) & 255); }
+    if(shift_left[j] == 1) { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] << bit_shift_nums[j]) & MAX_UNSIGNED_8_BIT_VAL); }
+    else { packed_uch[pack_ch_idx[j]] |= ((passed_uch[unpack_uch_idx[j]] >> bit_shift_nums[j]) & MAX_UNSIGNED_8_BIT_VAL); }
   }
 }
 void unpack_dehash_handler(int PASSED_STR_TOTAL, char unpacked_str[], unsigned char packed_uch[], unsigned char unpacked_uch[]) {
@@ -449,19 +466,19 @@ void unpack_dehash_handler(int PASSED_STR_TOTAL, char unpacked_str[], unsigned c
   int pack_ch_idx[] = {0,0,1,1,1,2,2,3,3,3,4,4}, unpack_uch_idx[] = {0,1,1,2,3,3,4,4,5,6,6,7}, bit_shift_nums[] = {3,2,6,1,4,4,1,7,2,3,5,0};
   for(i = 0, j = 0; i < unpack_shift_iterations; ++i, ++j) { /* BIT-UNPACK TEXT */
     if(NEED_TO_UPDATE_ARRS(i)) increment_idx_shift_arrs(&j, pack_ch_idx, unpack_uch_idx); /* UPDATE CHAR ACCESS IDXS */
-    if(shift_right[j] == 1) { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] >> bit_shift_nums[j]) & 31)); }
-    else { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] << bit_shift_nums[j]) & 31)); }
+    if(shift_right[j] == 1) { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] >> bit_shift_nums[j]) & MAX_UNSIGNED_5_BIT_VAL)); }
+    else { unpacked_uch[unpack_uch_idx[j]] |= (((packed_uch[pack_ch_idx[j]] << bit_shift_nums[j]) & MAX_UNSIGNED_5_BIT_VAL)); }
   }
   output_load_progress();
   dehash_show(PASSED_STR_TOTAL, unpacked_str, unpacked_uch);
   output_load_progress();
-  if(zip_info) sprintf(CMPR_zip_info_BUFF, "\n%c[1m>> %c[4mCommon Words/Phrases Compressed%c[0m%c[1m:%c[0m\n%s\n", 
-      ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, unpacked_str);
+  if(zip_info) sprintf(CMPR_zip_info_BUFF, "\n\033[1m>> \033[4mCommon Words/Phrases Compressed\033[0m\033[1m:\033[0m\n%s\n", unpacked_str);
   modify_str(unpacked_str, false); /* revert unpacked_str back to pre-compression format */
+  sub_in_2_most_common_q_prefixes(unpacked_str); /* resubstitute in 2 most common reserved 'q'-prefixes instead of '-' & '\'' */
   output_load_progress();
   sub_back_in_non_bitpackable_chars(unpacked_str); /* resubstitute in non-bitpackable chars to file */
-  /* ASCII_ESC code removes terminal styles once loading bar complete */
-  fprintf(stdout, "=====]%c[0m\n", ASCII_ESC);
+  /* '\033' ASCII ESCAPE code removes terminal styles once loading bar complete */
+  fprintf(stdout, "=====]\033[0m\n");
   fflush(stdout);
 }
 void hash_hide(int len, char passed_str[], unsigned char passed_uch[]) {
@@ -531,7 +548,7 @@ bool is_at_substring(char *p, char *substr) {
   return (*substr == '\0');
 }
 /******************************************************************************
-* ANIMATED "SPINNER", LOADING BAR, & CW-ROW FONT FUNCTIONS
+* ANIMATED "SPINNER" & LOADING BAR FUNCTIONS
 ******************************************************************************/
 void output_load_progress() {
   fprintf(stdout, "=====");
@@ -568,6 +585,54 @@ void start_loading_spinner() {
 /******************************************************************************
 * NON-BITPACKABLE CHARACTER SUBSTITUTION FUNCTIONS
 ******************************************************************************/
+void sub_out_2_most_common_q_prefixes(char *str) {
+  int qx_tot = 0, qy_tot = 0, qz_tot = 0;
+  char *p = str, buf[MAX_CH], *q;
+  FLOOD_ZEROS(buf, MAX_CH);
+  /* get the number of "qx", "qy", & "qz" prefixes */
+  while(*p != '\0') {
+    if(*p == 'q')
+      switch(*(p + 1)) {
+        case 'x': ++qx_tot; break;
+        case 'y': ++qy_tot; break;
+        case 'z': ++qz_tot;
+      }
+    ++p;
+  }
+  /* get the 2 most frequent reserved "q"-prefixes */
+  (qx_tot >= qy_tot)  
+    ? (qx_tot >= qz_tot)
+      ? (max_prefix1 = 'x', max_prefix2 = (qy_tot >= qz_tot) ? 'y' : 'z')
+      : (max_prefix1 = 'z', max_prefix2 = (qy_tot >= qx_tot) ? 'y' : 'x')
+    : (qy_tot >= qz_tot)
+      ? (max_prefix1 = 'y', max_prefix2 = (qx_tot >= qz_tot) ? 'x' : 'z')
+      : (max_prefix1 = 'z', max_prefix2 = (qy_tot >= qx_tot) ? 'y' : 'x');
+  /* replace the most common "q" prefix instances w/ "-" && the 2nd most common w/ "'" */
+  p = str, q = buf;
+  while(*p != '\0') {
+    if(*p == 'q' && *(p + 1) == max_prefix1)
+      *q++ = MAX_PREFIX1_KEY, p += 2;
+    else if(*p == 'q' && *(p + 1) == max_prefix2)
+      *q++ = MAX_PREFIX2_KEY, p += 2;
+    else
+      *q++ = *p++;
+  }
+  FLOOD_ZEROS(str, MAX_CH);
+  strcpy(str, buf);
+}
+void sub_in_2_most_common_q_prefixes(char *str) {
+  char *p = str, buf[MAX_CH], *q;
+  FLOOD_ZEROS(buf, MAX_CH);
+  /* resub back in the 2 most common reserved 'q' prefixes instead of '-' && '\'' */
+  q = buf;
+  while(*p != '\0') {
+    if(*p == MAX_PREFIX1_KEY)      *q++ = 'q', *q++ = max_prefix1, ++p;
+    else if(*p == MAX_PREFIX2_KEY) *q++ = 'q', *q++ = max_prefix2, ++p;
+    else *q++ = *p++;
+  }
+  FLOOD_ZEROS(str, MAX_CH);
+  strcpy(str, buf);
+}
 void sub_out_non_bpack_sequence(char *q, int val_key_index, int sequence_count) { 
   if(sequence_count < 2) { strcpy(q, SUB_KEYS[val_key_index]); return; }
   const int total_max_length_sequences = sequence_count / (MAX_NON_BPACK_CHAR_SEQ + 1); /* how many max length sequence keys to put */
@@ -706,13 +771,11 @@ void save_cw_data_for_output(int cw_count,int cw_idxs[],int idxs_len,bool hide_f
   cw_count = remove_duplicate_cw_idxs(cw_idxs, cw_count, idxs_len);
   char *p = &CWS_zip_info_BUFF[strlen(CWS_zip_info_BUFF)], local_header[7], col1[6], col2[6], bytes_sign;
   (local_cw) ? strcpy(local_header, "LOCAL ") : strcpy(local_header, ""); /* put "LOCAL" in header if relevant */
-  sprintf(p, "\n%s\n%c[1m%c[4m%sCOMMON WORDS FOUND & REPLACED (%d INSTANCES)%c[0m%c[1m:%c[0m\n", 
-    EQUALx80, ASCII_ESC, ASCII_ESC, local_header, total_cw_instances, ASCII_ESC, ASCII_ESC, ASCII_ESC);
+  sprintf(p, "\n%s\n\033[1m\033[4m%sCOMMON WORDS FOUND & REPLACED (%d INSTANCES)\033[0m\033[1m:\033[0m\n", EQUALx80, local_header, total_cw_instances);
   p += strlen(p);
   if(hide_flag) strcpy(col1, "INSRT"), strcpy(col2, "RMVD"), bytes_sign = '-';
   else          strcpy(col1, "RMVD"), strcpy(col2, "INSRT"), bytes_sign = '+';
-  sprintf(p, "\t%c[1m%c[4mFREQ%c[0m\t%c[1m%c[4mBYTES%c[0m\t%c[1m%c[4m%s%c[0m\t%c[1m%c[4m%s%c[0m\n", 
-    ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, ASCII_ESC, col1, ASCII_ESC, ASCII_ESC, ASCII_ESC, col2, ASCII_ESC);
+  sprintf(p, "\t\033[1m\033[4mFREQ\033[0m\t\033[1m\033[4mBYTES\033[0m\t\033[1m\033[4m%s\033[0m\t\033[1m\033[4m%s\033[0m\n", col1, col2);
   p += strlen(p);
   for(i = 0; i < cw_count; ++i) {
     saved_mem = (local_cw)  ? SAVED_CW_MEM(cw_freq_hashtbl[cw_idxs[i]], local_cws[cw_idxs[i]].cw, local_cws[cw_idxs[i]].sub)
@@ -771,8 +834,8 @@ void splice_str(char *s, char *sub, int splice_len) {
 ******************************************************************************/
 void hide_handle_local_cws(char s[]) {
   int i, j, count, files_first_word = 0, all_lcwIdx = 0, buff_idx = 0;
-  char *p = s, *q, local_word[75], lcw_write_array[MAX_CH], lcw_write_buffer[MAX_CH]; /* 'local_word' == any substring btwn "_"'s */
-  FLOOD_ZEROS(local_word, 75);
+  char *p = s, *q, local_word[150], lcw_write_array[MAX_CH], lcw_write_buffer[MAX_CH]; /* 'local_word' == any substring btwn "_"'s */
+  FLOOD_ZEROS(local_word, 150);
   FLOOD_ZEROS(lcw_write_array, MAX_CH);
   FLOOD_ZEROS(lcw_write_buffer, MAX_CH);
   for(i = 0; i < (MAX_CH/2); ++i) all_local_cws[i].freq = 0; /* init frequencies */
@@ -787,7 +850,7 @@ void hide_handle_local_cws(char s[]) {
   }
   output_load_progress();
   for(j = 0; j < all_lcwIdx; ++j) if(local_cw_worth_sub(all_local_cws[j].cw, all_local_cws[j].freq)) keep_local_word(j); /* eliminate ineffective lcw's */
-  if(lcwIdx >= FULL_CW_LEN) handle_capped_lcwIdx(); /* trim least-memory-saving-lcws if cap of 255 passed => anomaly, but just in case */
+  if(lcwIdx >= FULL_CW_LEN) handle_capped_lcwIdx(); /* trim least-memory-saving-lcws if cap of 222 passed => anomaly, but just in case */
   for(j=0; j<lcwIdx; ++j) {sprintf(&lcw_write_array[buff_idx],"%s_",local_cws[j].cw); buff_idx+=(strlen(local_cws[j].cw)+1);} /* prepend cws to file txt */
   lcw_write_array[buff_idx] = '\0';
   delta_sub_local_common_words(s, true); /* replace lcws with their associated lcw key */
@@ -817,11 +880,11 @@ void delta_sub_local_common_words(char s[], bool hide_flag) {
   start_loading_spinner();
   FLOOD_ZEROS(idxs_of_found_cw, MAX_CH/2);
   FLOOD_ZEROS(cw_frequency_hash_table, FULL_CW_LEN);
-  char *p, rmv[75], add[75];
+  char *p, rmv[150], add[150];
   for(i = 0; i < lcwIdx; ++i) {
     p = s;
-    FLOOD_ZEROS(rmv, 75);
-    FLOOD_ZEROS(add, 75);
+    FLOOD_ZEROS(rmv, 150);
+    FLOOD_ZEROS(add, 150);
     if(hide_flag) { strcpy(rmv, local_cws[i].cw); strcpy(add, local_cws[i].sub); } 
     else { strcpy(rmv, local_cws[i].sub); strcpy(add, local_cws[i].cw); }
     word_len = strlen(rmv);
