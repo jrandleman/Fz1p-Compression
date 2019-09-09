@@ -42,6 +42,9 @@
 #define M8D(N) ((N) % 8)
 #define SHIFT_CHAR_TOTAL(X) ((5*(X/8))+(M8D(X)>0)+(M8D(X)>1)+(M8D(X)>3)+(M8D(X)>4)+(M8D(X)>6))
 #define IS_LOW_CH(CH) ((CH) >= 'a' && (CH) <= 'z')
+#define IS_CAP_CH(CH) ((CH) >= 'A' && (CH) <= 'Z')
+#define TOLOWER(CH) (32 + (CH))
+#define TOUPPER(CH) ((CH) - 32)
 #define IS_PUNC(CH) ((CH) == '.' || (CH) == '!' || (CH) == '?')
 #define __PROGRAM__ ({char NAME[150];char*p=&__FILE__[strlen(__FILE__)-1];while(*(p-1)!='/')--p;strcpy(NAME,p);NAME;})
 #define myAssert(C,M)\
@@ -180,9 +183,9 @@ char SUB_KEYS[TOTAL_NON_BPACK_CHARS][5] = {
   "qyn","qyo","qyp","qyq","qyr","qys","qyt","qyu","qyv","qyw","qyx","qyy","qyz",
   "qza","qzb","qzc","qzd","qze","qzf","qzg","qzh","qzi","qzj","qzk","qzl","qzm",
 };
-#define MAX_NON_BPACK_CHAR_SEQ 13
-char SUB_VAL_SEQUENCE_COUNT_KEYS[MAX_NON_BPACK_CHAR_SEQ][10] = { /* 2-14 */
-  "qzn","qzo","qzp","qzq","qzr","qzs","qzt","qzu","qzv","qzw","qzx","qzy","qzz",
+#define MAX_NON_BPACK_CHAR_SEQ 12
+char SUB_VAL_SEQUENCE_COUNT_KEYS[MAX_NON_BPACK_CHAR_SEQ][10] = { /* 2-13 */
+  "qzn","qzo","qzp","qzq","qzr","qzs","qzt","qzu","qzv","qzw","qzx","qzy",
 };
 /* GLOBAL VARIABLES */
 unsigned char CW_LEN = FULL_CW_LEN, cw_shift_up_idxs[FULL_CW_LEN]; /* store indices of rmvd cw_keys */
@@ -265,7 +268,7 @@ void SHOW_HANDLER(char *arg1, char *filename) {
   double fz1p_time_taken = ((double)timer) / CLOCKS_PER_SEC;
   if(zip_info) printf("%s%s%s", BPACK_zip_info_BUFF, CMPR_zip_info_BUFF, CWS_zip_info_BUFF);
   printf("\n%s", EQUALx80);
-  printf("\n>> %s ==DECOMPRESS=> %s (TIME: %.2f sec)\n", arg1, filename, fz1p_time_taken);
+  printf("\n>> %s ==DECOMPRESS=> %s (TIME: %.2f sec.)\n", arg1, filename, fz1p_time_taken);
   printf("%s\n\n", EQUALx80);
   /* WRITE unpacked_str[] BACK TO ARG1 TEXT FILE */
   FILE *fp;
@@ -279,7 +282,7 @@ void SHOW_HANDLER(char *arg1, char *filename) {
 void check_for_reserved_qx_qy_qz_char_sequences(char *str) {
   char *p = str;
   while(*(p+1) != '\0') {
-    if(*p == 'q' && (*(p+1) == 'x' || *(p+1) == 'y' || *(p+1) == 'z')) {
+    if((*p == 'q' || *p == 'Q') && (*(p+1) == 'x' || *(p+1) == 'X' || *(p+1) == 'y' || *(p+1) == 'Y' || *(p+1) == 'z' || *(p+1) == 'Z')) {
       char temp[MAX_CH];
       FLOOD_ZEROS(temp, MAX_CH);
       strcpy(temp, p);
@@ -567,8 +570,8 @@ void start_loading_spinner() {
 ******************************************************************************/
 void sub_out_non_bpack_sequence(char *q, int val_key_index, int sequence_count) { 
   if(sequence_count < 2) { strcpy(q, SUB_KEYS[val_key_index]); return; }
-  const int total_max_length_sequences = sequence_count / 14; /* how many length 14 sequence keys to put */
-  const int total_remaining_sequences = sequence_count % 14; /* remainder of sequence that's left under length 14 */
+  const int total_max_length_sequences = sequence_count / (MAX_NON_BPACK_CHAR_SEQ + 1); /* how many max length sequence keys to put */
+  const int total_remaining_sequences = sequence_count % (MAX_NON_BPACK_CHAR_SEQ + 1); /* remainder of sequence that's left under max length */
   const int SUB_VAL_SEQ_COUNT_IDX = total_remaining_sequences - 2;
   const int MAX_SEQ_COUNT_IDX = MAX_NON_BPACK_CHAR_SEQ - 1;
   int i;
@@ -593,13 +596,35 @@ void sub_in_non_bpack_sequence(char *q, char *str, int seq_count_key_index) {
     *q++ = SUB_VALS[val_key_index];
 }
 int sub_out_non_bitpackable_chars(char *str) { /* Replace non-bitpackable chars with substitute keys */
-  char buf[MAX_CH];
+  char buf[MAX_CH], capitals_sequence[MAX_CH];
   FLOOD_ZEROS(buf, MAX_CH);
   char *p = str, *q = buf, *scout;
-  int i = 0, total_non_bitpackable_chars = 0, non_bpack_char_seq_length;
-  while(*p != '\0') {                             /* traverse through string */
+  int i = 0, total_non_bitpackable_chars = 0, non_bpack_char_seq_length, cap_seq_idx;
+  bool upflag = true, upleftflag = false, sideflag = false, downrightflag = false;
+  start_loading_spinner();
+  while(*p != '\0') {                           /* traverse through string */
+    animate_loading_spinner(&upflag, &upleftflag, &sideflag, &downrightflag);
     for(i = 0; i < TOTAL_NON_BPACK_CHARS; ++i)  /* search for non bitpackable characters */
       if(*p == SUB_VALS[i]) {
+        /* at least 3 capitals needed to make reserved-char compression worth it */
+        if(IS_CAP_CH(*p) && IS_CAP_CH(*(p+1)) && IS_CAP_CH(*(p+2))) {
+          cap_seq_idx = 0;
+          FLOOD_ZEROS(capitals_sequence, MAX_CH);
+          capitals_sequence[cap_seq_idx++] = TOLOWER(*p);
+          scout = p + 1;
+          while(*scout != '\0' && IS_CAP_CH(*scout)) /* copy sequence of capital letters > length 3 */
+            capitals_sequence[cap_seq_idx++] = (TOLOWER(*scout)), ++scout;
+          capitals_sequence[cap_seq_idx] = '\0';
+          scout = capitals_sequence;
+          while(*scout != '\0' && *scout == capitals_sequence[0]) ++scout;
+          if(*scout != '\0') { /* sequence of capitals isn't just the same letter (more effectively compressed as a sequence if so) */
+            sprintf(q, "qzz%sqz", capitals_sequence); /* sequence of 3+ capital letters always stored btwn "qzz" & "qz" */
+            q += strlen(q);
+            p += cap_seq_idx;
+            break;
+          }
+        }
+        /* not a sequence of 3+ capitals thus check convert/compress sequence of non-bitpackable chars */
         scout = p + 1;
         non_bpack_char_seq_length = 1;
         while(*scout != '\0' && *scout == SUB_VALS[i]) ++scout, ++non_bpack_char_seq_length;
@@ -614,17 +639,29 @@ int sub_out_non_bitpackable_chars(char *str) { /* Replace non-bitpackable chars 
   *q = '\0';
   FLOOD_ZEROS(str, MAX_CH);
   strcpy(str, buf);
-  return total_non_bitpackable_chars;             /* for "-l" flag */
+  remove_loading_spinner();
+  return total_non_bitpackable_chars; /* for "-l" flag */
 }
 void sub_back_in_non_bitpackable_chars(char *str) { /* Resub non-bitpackable chars back into the string */
-  char buf[MAX_CH];
+  char buf[MAX_CH], capitals_sequence[MAX_CH], *scout;
   FLOOD_ZEROS(buf, MAX_CH);
   char *p = str, *q = buf;
-  int i = 0, j = 0;
+  int i = 0, j = 0, cap_seq_idx;
   bool upflag = true, upleftflag = false, sideflag = false, downrightflag = false;
   start_loading_spinner();
-  while(*p != '\0') {                             /* traverse through string */
+  while(*p != '\0') {               /* traverse through string */
     animate_loading_spinner(&upflag, &upleftflag, &sideflag, &downrightflag);
+    if(is_at_substring(p, "qzz")) { /* check for sequences of capital letters */
+      cap_seq_idx = 0;
+      FLOOD_ZEROS(capitals_sequence, MAX_CH);
+      scout = p + 3; /* at start of capitals sequence */
+      while(*scout != '\0' && !is_at_substring(scout, "qz"))
+        capitals_sequence[cap_seq_idx++] = TOUPPER(*scout), ++scout;
+      capitals_sequence[cap_seq_idx] = '\0';
+      strcpy(q, capitals_sequence);
+      q += strlen(q);
+      p += cap_seq_idx + 5; /* capitals sequence length + "qzz" + "qzz" */
+    }
     for(j = 0; j < MAX_NON_BPACK_CHAR_SEQ; ++j) {
       if(is_at_substring(p, SUB_VAL_SEQUENCE_COUNT_KEYS[j])) {
         sub_in_non_bpack_sequence(q, p, j);
