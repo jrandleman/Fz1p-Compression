@@ -8,6 +8,7 @@
 
 * Enter `-l` to print compression information during run:
   * `$ ./fz1p -l ...`
+* Try compressing the `Macbeth.txt` sample file provided!
   
 ---------------------------------------
 ## Compression Information:
@@ -27,5 +28,5 @@
 5. ***Mind = Blown***
 ---------------------------------------
 ## 3 Reserved Character Sequences for Compression:
-* "`qx`", "`qy`", _&_ "`qz`" _are **NOT** to be used in any_ `.txt` _being compressed_
-* `fz1p.c` _will preemptively scan files to warn the client if any of the above are found_
+* "`qx`", "`qy`", _&_ "`qz`" _are **NOT** to be used in any_ `.txt` _being compressed (lower **or** uppercase!)_
+* `fz1p.c` _preemptively scans files to warn the client if any of the above are found_
