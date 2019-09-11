@@ -8,7 +8,7 @@
 
 * Enter `-l` to print compression information during run:
   * `$ ./fz1p -l ...`
-* Try compressing the `Macbeth.txt` sample file provided!
+* Try compressing the [Macbeth.txt](https://github.com/jrandleman/Fz1p-Compression/blob/master/Macbeth.txt) sample file provided!
   
 ---------------------------------------
 ## Compression Information:
