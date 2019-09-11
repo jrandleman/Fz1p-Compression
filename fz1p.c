@@ -55,9 +55,12 @@
 #define TOLOWER(CH) (32 + (CH))
 #define TOUPPER(CH) ((CH) - 32)
 #define IS_PUNC(CH) ((CH) == '.' || (CH) == '!' || (CH) == '?')
-#define __PROGRAM__ ({char NAME[150];char*p=&__FILE__[strlen(__FILE__)-1];while(*(p-1)!='/')--p;strcpy(NAME,p);NAME;})
-#define myAssert(C,M)\
-  ({if(C==NULL){fprintf(stderr, "\n=> myAssert Failed: %s, program: %s, function: %s(), line: %d\n%s\n",#C,__PROGRAM__,__FUNCTION__,__LINE__,M);exit(0);}})
+#define myAssert(C,M) ({\
+  if(C==NULL) {\
+    fprintf(stderr, "\n >> fz1p.c: \033[1m\033[31mERROR\033[0m myAssert Failed: %s, function: %s(), line: %d\n >> %s\n\n",#C,__FUNCTION__,__LINE__,M);\
+    exit(1);\
+  }\
+})
 #define local_cw_mem_saved(STR,FREQ) ((strlen((STR)) * (FREQ)) - (strlen((STR)) + (2 * (FREQ))) - 1) /* -1 for '_' tailing pre-file local_cw word array */
 #define local_cw_worth_sub(S,F) ((strlen((S))==3) ? ((F)>4) : (strlen((S))==4||strlen((S))==5) ? ((F)>2) : ((strlen((S))>5) && ((F)>1)))
 #define lcw_end(CH1,CH2) ((CH1) == '_' || ((IS_PUNC((CH1)) || (CH1) == '-') && ((CH2) == '_' || ((CH2) == '\0'))))
@@ -302,7 +305,7 @@ void check_for_reserved_qx_qy_qz_char_sequences(char *str) {
       int length = p_len < 37 ? p_len : 37;
       temp[length] = '\0';
       fprintf(stderr, "\n===========================================================\n");
-      fprintf(stderr, "fz1p.c: WARNING, RESERVED CHARACTER SEQUENCE \"q%c\" DETECTED!\n", *(p+1));
+      fprintf(stderr, "fz1p.c: \033[1m\033[31mERROR\033[0m RESERVED CHARACTER SEQUENCE \"q%c\" DETECTED!\n", *(p+1));
       fprintf(stderr, "==== >> FOUND HERE: \"%s\"\n", temp);
       fprintf(stderr, "==== >> REMOVE TO COMPRESS FILE WITH fz1p.c!\n");
       fprintf(stderr, "==== >> TERMINATING PROGRAM.\n");
@@ -315,21 +318,21 @@ void check_for_reserved_qx_qy_qz_char_sequences(char *str) {
 void confirm_valid_file(char *filename) { /* confirms file exists, non-empty, & is less memory than MAX_CH */
   struct stat buf;
   if(stat(filename, &buf)) {
-    fprintf(stderr, "\n-:- fz1p.c: WARNING, FILE \"%s\" DOES NOT EXIST! -:-\n", filename);
+    fprintf(stderr, "\n-:- fz1p.c: \033[1m\033[31mERROR\033[0m FILE \"%s\" DOES NOT EXIST! -:-\n", filename);
     fprintf(stderr, ">> Terminating Program.\n\n");
     exit(EXIT_FAILURE);
   }
   if(buf.st_size > MAX_CH || buf.st_size == 0) {
     if(buf.st_size > MAX_CH) {
-      fprintf(stderr, "\n-:- fz1p.c: WARNING, FILE \"%s\" SIZE %lld BYTES EXCEEDS %d BYTE CAP! -:- \n",filename,buf.st_size,MAX_CH); 
+      fprintf(stderr, "\n-:- fz1p.c: \033[1m\033[31mERROR\033[0m FILE \"%s\" SIZE %lld BYTES EXCEEDS %d BYTE CAP! -:- \n",filename,buf.st_size,MAX_CH); 
       fprintf(stderr, "-:- RAISE 'MAX_CH' MACRO LIMIT! -:- \n");
-    } else fprintf(stderr, "\n-:- EMPTY FILES CAN'T BE COMPRESSED! -:- \n"); 
+    } else fprintf(stderr, "\n-:- fz1p.c: \033[1m\033[31mERROR\033[0m EMPTY FILES CAN'T BE COMPRESSED! -:- \n"); 
     fprintf(stderr, ">> Terminating Program.\n\n");
     exit(EXIT_FAILURE);
   }
 }
 void err_info() {
-  fprintf(stderr, "\n============================= INVALID EXECUTION! =============================\n");
+  fprintf(stderr, "\n============================= \033[1m\033[31mINVALID EXECUTION!\033[0m =============================\n");
   fprintf(stderr, "$ gcc -o fz1p fz1p.c\n<COMPRESS>   $ ./fz1p filename.txt\n<DECOMPRESS> $ ./fz1p filename.txt.FZ1P\n");
   fprintf(stderr, "%s\n", EQUALx80);
   fprintf(stderr, "=> COMPRESSION INFORMATION: $ ./fz1p -l filename.extension\n");
