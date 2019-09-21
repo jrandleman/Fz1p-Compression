@@ -4,7 +4,7 @@
 ## Compilation and Initialization:
 \<COMPILE> `$ gcc -o fz1p fz1p.c`</br>
 \<COMPRESSOR> `$ ./fz1p filename.txt`</br>
-\<DECOMPRESS> `$ ./fz1p filename.txt.FZ1P`
+\<DECOMPRESS> `$ ./fz1p filename.txt.fz1p`
 
 * Enter `-l` to print compression information during run:
   * `$ ./fz1p -l ...`
