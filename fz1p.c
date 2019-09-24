@@ -26,7 +26,7 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <time.h>
-#define MAX_CH 1000000 /* 1 gigabyte = max filesize */
+#define MAX_CH 1000000 /* 1 megabyte = max filesize */
 #define MAX_PREFIX1_KEY '-' /* replaces the most common reserved 'q'-prefix */
 #define MAX_PREFIX2_KEY '\'' /* replaces 2nd most common reserved 'q'-prefix */
 #define MAX_UNSIGNED_8_BIT_VAL 255
