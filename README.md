@@ -12,7 +12,7 @@
   * `$ ./fz1p -l ...`
 * Enter `-no-load` to prevent the loading bar animation:
   * `$ ./fz1p -no-load ...`</br>
-  * _for piping compression result into a .txt file!_
+  * _for piping compression results into a .txt file!_
 * Can combine the above, **BUT** compressed file **MUST** be last!
 ```c
 $ ./fz1p -no-load -l filename.txt // valid
