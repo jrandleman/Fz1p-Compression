@@ -5,10 +5,21 @@
 \<COMPILE> `$ gcc -o fz1p fz1p.c`</br>
 \<COMPRESSOR> `$ ./fz1p filename.txt`</br>
 \<DECOMPRESS> `$ ./fz1p filename.txt.fz1p`
+* Try compressing the [Macbeth.txt](https://github.com/jrandleman/Fz1p-Compression/blob/master/Macbeth.txt) sample file provided!
 
+### Command-Line Flags:
 * Enter `-l` to print compression information during run:
   * `$ ./fz1p -l ...`
-* Try compressing the [Macbeth.txt](https://github.com/jrandleman/Fz1p-Compression/blob/master/Macbeth.txt) sample file provided!
+* Enter `-no-load` to prevent the loading bar animation:
+  * `$ ./fz1p -no-load ...`</br>
+  * _for piping compression result into a .txt file!_
+* Can combine the above, **BUT** compressed file **MUST** be last!
+```c
+$ ./fz1p -no-load -l filename.txt // valid
+$ ./fz1p -l -no-load filename.txt // valid
+$ ./fz1p -no-load filename.txt -l // NOT valid
+```
+
   
 ---------------------------------------
 ## Compression Information:
