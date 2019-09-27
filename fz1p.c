@@ -6,9 +6,10 @@
 ********************************************************************/
 /**
  * compiles: $ gcc -o fz1p fz1p.c
- *   (COMPR) $ ./fz1p yourFile.txt
- * (DECOMPR) $ ./fz1p yourFile.txt.fz1p
- * (DETAILS) $ ./fz1p -l ...
+ *    (COMPR) $ ./fz1p yourFile.txt
+ *  (DECOMPR) $ ./fz1p yourFile.txt.fz1p
+ *  (DETAILS) $ ./fz1p -l ...
+ * (!LOADBAR) $ ./fz1p -no-load ...
  *
  * RESERVED CHARACTER SEQUENCES (for compression process):
  * (1) "qx"
@@ -207,27 +208,32 @@ unsigned char CW_LEN = FULL_CW_LEN, cw_shift_up_idxs[FULL_CW_LEN]; /* store indi
 char CMPR_zip_info_BUFF[MAX_CH], BPACK_zip_info_BUFF[MAX_CH], CWS_zip_info_BUFF[MAX_CH]; /* store data to ouput at end if "-l" present */
 char max_prefix1, max_prefix2; /* store which 2 of the most common reserved 'q'-prefixes were swapped out w/ '-' * '\'' */
 int lcwIdx = 0; /* output compresion/decompresion progress */
-bool zip_info = false;
+bool zip_info = false, show_load = true;
 int main(int argc, char *argv[]) {
-  if(argc < 2 || argc > 3) err_info();
-  char filename[150], arg1[150];
+  if(argc < 2 || argc > 4) err_info();
+  char filename[150];
+  int i;
   FLOOD_ZEROS(filename, 150); 
-  FLOOD_ZEROS(arg1, 150); 
   FLOOD_ZEROS(CWS_zip_info_BUFF, MAX_CH); 
   FLOOD_ZEROS(CMPR_zip_info_BUFF, MAX_CH); 
   FLOOD_ZEROS(BPACK_zip_info_BUFF, MAX_CH); 
-  if(argc == 3) {
-    strcpy(arg1, argv[2]);
-    (strcmp(argv[1], "-l") == 0) ? (zip_info = true) : (fprintf(stderr, "\n\n(!!!) WRONG INFO FLAG => -l (!!!)\n\n"));
-  } else { strcpy(arg1, argv[1]); }
-  confirm_valid_file(arg1); /* confirm file exists, is not empty, & is less memory than MAX_CH */
-  if(HAS_EXTENSION(arg1, ".txt")) {
-    ADD_FILENAME_EXTENSION(arg1, filename, ".fz1p");
-    HIDE_HANDLER(arg1, filename);
-  } else if(HAS_EXTENSION(arg1, ".FZ1P") || HAS_EXTENSION(arg1, ".fz1p")) {
-    RMV_FILENAME_EXTENSION(arg1, filename);
-    SHOW_HANDLER(arg1, filename);
-  } else { err_info(); }
+  for(i = 1; i < argc - 1; ++i) {
+    if(strcmp(argv[i], "-l") == 0)
+      zip_info = true;
+    else if(strcmp(argv[i], "-no-load") == 0) 
+      show_load = false;
+    else
+      fprintf(stderr, "\n\033[1mfz1p.c:%03d: \033[31mERROR:\033[0m\033[1m CMD-LINE FLAG \"%s\" WAS NOT \"-l\" NOR \"-no-load\"!\033[0m\n",__LINE__,argv[i]), 
+      err_info();
+  }
+  confirm_valid_file(argv[argc-1]); /* confirm file exists, is not empty, & is less memory than MAX_CH */
+  if(HAS_EXTENSION(argv[argc-1], ".txt")) {
+    ADD_FILENAME_EXTENSION(argv[argc-1], filename, ".fz1p");
+    HIDE_HANDLER(argv[argc-1], filename);
+  } else if(HAS_EXTENSION(argv[argc-1], ".FZ1P") || HAS_EXTENSION(argv[argc-1], ".fz1p")) {
+    RMV_FILENAME_EXTENSION(argv[argc-1], filename);
+    SHOW_HANDLER(argv[argc-1], filename);
+  } else err_info();
   return 0;
 }
 /******************************************************************************
@@ -251,8 +257,7 @@ void HIDE_HANDLER(char arg1[], char *filename) {
   int compr_bytes = COMPR_MEM(SHIFT_CHAR_TOTAL(PASSED_STR_TOTAL));
   write_compr_text(filename, PASSED_STR_TOTAL, packed_uch);
   /* '\033' ASCII ESCAPE code removes terminal styles once loading bar complete */
-  fprintf(stdout, "=====]\033[0m\n");
-  fflush(stdout);
+  if(show_load) fprintf(stdout, "=====]\033[0m\n"), fflush(stdout);
   /* OUPUT COMPRESSION RESULTS */
   float total_saved_bytes_ratio = COMPR_RATIO(compr_bytes, original_length); 
   if(zip_info) printf("%s%s%s", CWS_zip_info_BUFF, CMPR_zip_info_BUFF, BPACK_zip_info_BUFF);
@@ -263,7 +268,7 @@ void HIDE_HANDLER(char arg1[], char *filename) {
   printf("\n%s ==COMPRESS=> %s (TIME: %.2f sec.)\n", arg1, filename, fz1p_time_taken);
   printf(">> BYTES => UNCOMPRESSED: %d, COMPRESSED: %d, COMPRESSION RATE: %.2f%%\n", original_length, compr_bytes, total_saved_bytes_ratio);
   printf("%s\n\n", EQUALx80);
-  delete_original_file_option(arg1);
+  if(show_load) delete_original_file_option(arg1);
 }
 void SHOW_HANDLER(char *arg1, char *filename) {
   /* START FZ1P.C TIMER */
@@ -337,7 +342,8 @@ void err_info() {
   fprintf(stderr, "\n============================= \033[1m\033[31mINVALID EXECUTION!\033[0m =============================\n");
   fprintf(stderr, "$ gcc -o fz1p fz1p.c\n<COMPRESS>   $ ./fz1p filename.txt\n<DECOMPRESS> $ ./fz1p filename.txt.fz1p\n");
   fprintf(stderr, "%s\n", EQUALx80);
-  fprintf(stderr, "=> COMPRESSION INFORMATION: $ ./fz1p -l filename.extension\n");
+  fprintf(stderr, "=> COMPRESSION INFORMATION:  $ ./fz1p -l filename.extension\n");
+  fprintf(stderr, "=> NO LOADING BAR ANIMATION: $ ./fz1p -no-load filename.extension\n");
   fprintf(stderr, "%s\n", EQUALx80);
   fprintf(stderr, "=> RESERVED CHAR SEQUENCES: \"qx\", \"qy\", & \"qz\"\n");
   fprintf(stderr, "%s\n\n", EQUALx80);
@@ -353,11 +359,12 @@ void read_uncompr_text(char s[], char *arg1, int *original_length) {
   FLOOD_ZEROS(buff, 500);
   int count = 0, cw_tot, total_non_bitpackable_chars = 0;
   /* '\033' ASCII ESCAPE codes: reverse background & text colors, bold font (undone once loading bar terminates) */
-  fprintf(stdout, "\n\033[7m\033[1mCOMPRESSION PROGRESS: [=====                                             ]");
-  fflush(stdout);
-  /* moves cursor 26 character back to start of '=' to continue loading bar */
-  fprintf(stdout, "\033[46D"); 
-  fflush(stdout);
+  if(show_load) {
+    fprintf(stdout, "\n\033[7m\033[1mCOMPRESSION PROGRESS: [=====                                             ]");
+    fflush(stdout);
+    /* moves cursor 26 character back to start of '=' to continue loading bar */
+    fprintf(stdout, "\033[46D"), fflush(stdout);
+  }
   /* read file */
   while(fgets(buff, 500, fp) != NULL) { 
     strcpy(&s[count], buff); 
@@ -411,11 +418,12 @@ void read_compr_text(char *filename, char unpacked_str[], int *PASSED_STR_TOTAL,
   init_decompr_arr(unpacked_str); /* init unpacked_str with 0's to clear garbage memory for bitpacking */
   init_compr_arr(unpacked_uch); /* init 0's to clear garbage memory */
   FILE *fp;
-  fprintf(stdout, "\n\033[7m\033[1mDECOMPRESSION PROGRESS: [=====                                             ]");
-  fflush(stdout);
-  /* moves cursor 26 character back to start of '=' to continue loading bar */
-  fprintf(stdout, "\033[46D"); 
-  fflush(stdout);
+  if(show_load) {
+    fprintf(stdout, "\n\033[7m\033[1mDECOMPRESSION PROGRESS: [=====                                             ]");
+    fflush(stdout);
+    /* moves cursor 26 character back to start of '=' to continue loading bar */
+    fprintf(stdout, "\033[46D"), fflush(stdout);
+  }
   /* read file */
   myAssert((fp = fopen(filename, "rb")), "\n\n(!!!) ERROR READING COMPRESSED TEXT FROM BINARY FILE (!!!)\n\n");
   fread(&max_prefix1, sizeof(char), 1, fp); /* read 1st most common reserved 'q' prefix (subbed w/ '-') */
@@ -483,8 +491,7 @@ void unpack_dehash_handler(int PASSED_STR_TOTAL, char unpacked_str[], unsigned c
   output_load_progress();
   sub_back_in_non_bitpackable_chars(unpacked_str); /* resubstitute in non-bitpackable chars to file */
   /* '\033' ASCII ESCAPE code removes terminal styles once loading bar complete */
-  fprintf(stdout, "=====]\033[0m\n");
-  fflush(stdout);
+  if(show_load) fprintf(stdout, "=====]\033[0m\n"), fflush(stdout);
 }
 void hash_hide(int len, char passed_str[], unsigned char passed_uch[]) {
   int i; for(i = 0; i < len; ++i) passed_uch[i] = hide_hash_value(passed_str[i]);
@@ -556,36 +563,25 @@ bool is_at_substring(char *p, char *substr) {
 * ANIMATED "SPINNER" & LOADING BAR FUNCTIONS
 ******************************************************************************/
 void output_load_progress() {
-  fprintf(stdout, "=====");
-  fflush(stdout);
+  if(show_load) fprintf(stdout, "====="), fflush(stdout);
 }
 void animate_loading_spinner(bool *upflag, bool *upleftflag, bool *sideflag, bool *downrightflag) {
-  if(*upflag) {
-    fprintf(stdout, "\b|");
-    *upflag = false;
-    *upleftflag = true;
-  } else if(*upleftflag) {
-    fprintf(stdout, "\b/");
-    *upleftflag = false;
-    *sideflag = true;
-  } else if(*sideflag) {
-    fprintf(stdout, "\b-");
-    *sideflag = false;
-    *downrightflag = true;
-  } else if(*downrightflag) {
-    fprintf(stdout, "\b\\");
-    *downrightflag = false;
-    *upflag = true;
-  } 
+  if(!show_load) return;
+  if(*upflag)
+    fprintf(stdout, "\b|"), *upflag = false, *upleftflag = true;
+  else if(*upleftflag)
+    fprintf(stdout, "\b/"), *upleftflag = false, *sideflag = true;
+  else if(*sideflag)
+    fprintf(stdout, "\b-"), *sideflag = false, *downrightflag = true;
+  else if(*downrightflag)
+    fprintf(stdout, "\b\\"), *downrightflag = false, *upflag = true;
   fflush(stdout);
 }
 void remove_loading_spinner() {
-  fprintf(stdout, " \b\b \b\b");
-  fflush(stdout);
+  if(show_load) fprintf(stdout, " \b\b \b\b"), fflush(stdout);
 }
 void start_loading_spinner() {
-  fprintf(stdout, "  ");
-  fflush(stdout);
+  if(show_load) fprintf(stdout, "  "), fflush(stdout);
 }
 /******************************************************************************
 * NON-BITPACKABLE CHARACTER SUBSTITUTION FUNCTIONS
