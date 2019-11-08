@@ -59,7 +59,7 @@
 #define myAssert(C,M) ({\
   if(C==NULL) {\
     fprintf(stderr,"\n\033[1m >> fz1p.c: \033[31mERROR:\033[0m\033[1m myAssert Failed: %s, function: %s(), line: %d\n >> %s\033[0m\n\n",\
-    #C,__FUNCTION__,__LINE__,M);\
+    #C,__func__,__LINE__,M);\
     exit(EXIT_FAILURE);\
   }\
 })
